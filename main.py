@@ -1,35 +1,37 @@
 import matplotlib.pyplot as plt
-from src.model import Structure
+from src.model.structure import Structure
 from src.visualization import plot_structure
+from src.analysis.optimizer import run_optimization
 
 
-def run_console_test():
-    print("--- Topologieoptimierung: Konsolen-Test ---")
+def main():
+    width = 41
+    height = 10
 
-    try:
-        width = int(input("Bitte Breite eingeben (Anzahl Knoten x): "))
-        height = int(input("Bitte Höhe eingeben (Anzahl Knoten z): "))
-    except ValueError:
-        print("Fehler: Bitte gib nur ganze Zahlen ein!")
-        return
+    s = Structure.create_grid(width, height)
 
-    print(f"\nErstelle Gitter mit {width}x{height} Knoten...")
-    system = Structure.create_grid(width, height)
+    target_x = width // 2
+    target_z = 0
+    force_node_id = target_z * width + target_x
 
-    print(f"Erfolg! Das System hat:")
-    print(f"- {len(system.nodes)} Knoten (Massenpunkte)")
-    print(f"- {len(system.elements)} Elemente (Federn)")
+    if force_node_id >= len(s.nodes):
+        force_node_id = 0
 
-    print("\nÖffne Plot-Fenster...")
+    s.last_aufbringen(force_node_id, 0, 1000)
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
 
-    plot_structure(system, ax=ax)
+    plot_structure(s, ax=ax1)
+    ax1.set_title("Vorher")
 
-    ax.set_title(f"Vorschau: {width}x{height} Gitter")
+    run_optimization(s, target_mass_ratio=0.5, removal_rate=0.02)
 
+    plot_structure(s, ax=ax2)
+    ax2.set_title("Nachher")
+
+    plt.tight_layout()
     plt.show()
 
 
 if __name__ == "__main__":
-    run_console_test()
+    main()
