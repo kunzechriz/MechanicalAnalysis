@@ -1,6 +1,3 @@
-import numpy as np
-
-
 def symmetrize_energies(structure, energies, width):
     height = getattr(structure, 'height', len(structure.nodes) // width)
     limit_x = (width + 1) // 2

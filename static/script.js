@@ -264,6 +264,9 @@ function switchView(viewName) {
     }
 }
 
+//-------------------------------------------------------------------------------------------------------
+// Topologieoptimierung
+//-------------------------------------------------------------------------------------------------------
 async function triggerPythonSolver() {
     const term = document.getElementById('terminal-content');
     const statusDot = document.getElementById('status-dot');
@@ -318,6 +321,7 @@ async function triggerPythonSolver() {
         if (result.status === 'done') {
             term.innerHTML += `<br><div style='color:#007aff; font-weight:bold;'>✓ Optimization FINISHED.</div>`;
             term.scrollTop = term.scrollHeight;
+            lastOptimizedNodes = result.nodes;
 
             if (result.nodes) {
                 isShowingResult = true;
@@ -338,3 +342,160 @@ async function triggerPythonSolver() {
 }
 
 setBaseCase();
+
+//-------------------------------------------------------------------------------------------------------
+// Verfomrungsanalyse
+//-------------------------------------------------------------------------------------------------------
+let lastOptimizedNodes = null;
+let isShowingDeformation = false;
+
+async function triggerKinematicAnalysis() {
+    const term = document.getElementById('terminal-content');
+
+    if (isShowingDeformation) {
+        isShowingDeformation = false;
+
+        if (isShowingResult && lastOptimizedNodes) {
+            renderOptimizedStructure(lastOptimizedNodes);
+        } else {
+            updateCanvas();
+        }
+        return;
+    }
+
+    isShowingDeformation = true;
+    term.innerHTML = "<div style='opacity:0.6'>Calculating Deformation on CURRENT structure...</div>";
+
+    const currentForce = parseFloat(document.getElementById('slider-force').value);
+
+    let activeIndices = [];
+
+    if (isShowingResult && lastOptimizedNodes) {
+
+        lastOptimizedNodes.forEach((n, index) => {
+            if (n.active) activeIndices.push(index);
+        });
+    } else {
+
+        activeIndices = null;
+    }
+
+    const payload = {
+        width: gridState.nodesX,
+        height: gridState.nodesY,
+        supports: gridState.supports,
+        active_nodes: activeIndices,
+        forces: Object.keys(gridState.forces).reduce((acc, key) => {
+            acc[key] = { fy: currentForce };
+            return acc;
+        }, {})
+    };
+
+    try {
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'done') {
+            term.innerHTML += `<br><div style='color:#007aff;'>Verformungsanalyse abgeschlossen</div>`;
+            term.scrollTop = term.scrollHeight;
+
+            renderDeformation(result.nodes, result.max_disp);
+        } else {
+            term.innerHTML += `<br><div style='color:#ef4444;'>⚠ Error: ${result.message}</div>`;
+            isShowingDeformation = false;
+        }
+    } catch (e) {
+        term.innerHTML += `<br><div style='color:#ef4444;'>⚠ Network Error</div>`;
+        isShowingDeformation = false;
+    }
+}
+function renderDeformation(nodes, maxDisp) {
+    const { spacing, offsetX, offsetY } = calculateGridMetrics();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const visualScale = (maxDisp > 0) ? (canvas.height * 0.15) / maxDisp : 0;
+
+    function getHeatmapColor(value, max) {
+        if (max === 0) return 'hsl(240, 100%, 50%)';
+        let percent = value / max;
+        let hue = 240 * (1 - percent);
+        return `hsl(${hue}, 100%, 50%)`;
+    }
+
+    const nodeMap = new Map();
+    nodes.forEach(n => nodeMap.set(n.id, n));
+
+    const width = gridState.nodesX;
+
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+
+    nodes.forEach(n => {
+        const drawX = offsetX + n.x * spacing + (n.ux * visualScale);
+        const drawY = offsetY + n.z * spacing + (n.uz * visualScale);
+
+        if (n.x < width - 1) {
+            const rightId = n.id + 1;
+            if (nodeMap.has(rightId)) {
+                const right = nodeMap.get(rightId);
+                const rX = offsetX + right.x * spacing + (right.ux * visualScale);
+                const rY = offsetY + right.z * spacing + (right.uz * visualScale);
+                ctx.moveTo(drawX, drawY);
+                ctx.lineTo(rX, rY);
+            }
+        }
+
+        const downId = n.id + width;
+        if (nodeMap.has(downId)) {
+            const down = nodeMap.get(downId);
+            const dX = offsetX + down.x * spacing + (down.ux * visualScale);
+            const dY = offsetY + down.z * spacing + (down.uz * visualScale);
+            ctx.moveTo(drawX, drawY);
+            ctx.lineTo(dX, dY);
+        }
+
+        if (n.x < width - 1) {
+            const diagDRId = n.id + width + 1;
+            if (nodeMap.has(diagDRId)) {
+                const dDR = nodeMap.get(diagDRId);
+                const dDRX = offsetX + dDR.x * spacing + (dDR.ux * visualScale);
+                const dDRY = offsetY + dDR.z * spacing + (dDR.uz * visualScale);
+                ctx.moveTo(drawX, drawY);
+                ctx.lineTo(dDRX, dDRY);
+            }
+        }
+
+        if (n.x > 0) {
+            const diagDLId = n.id + width - 1;
+            if (nodeMap.has(diagDLId)) {
+                const dDL = nodeMap.get(diagDLId);
+                const dDLX = offsetX + dDL.x * spacing + (dDL.ux * visualScale);
+                const dDLY = offsetY + dDL.z * spacing + (dDL.uz * visualScale);
+                ctx.moveTo(drawX, drawY);
+                ctx.lineTo(dDLX, dDLY);
+            }
+        }
+    });
+    ctx.stroke();
+
+    nodes.forEach(n => {
+        const drawX = offsetX + n.x * spacing + (n.ux * visualScale);
+        const drawY = offsetY + n.z * spacing + (n.uz * visualScale);
+
+        ctx.beginPath();
+        const radius = 3.5;
+        ctx.arc(drawX, drawY, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = getHeatmapColor(n.disp, maxDisp);
+        ctx.fill();
+
+        const key = `${n.x},${n.z}`;
+        if (gridState.supports[key]) drawSymbol(drawX, drawY, gridState.supports[key]);
+        if (gridState.forces[key]) drawArrow(drawX, drawY);
+    });
+}
