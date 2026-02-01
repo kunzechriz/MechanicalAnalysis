@@ -60,12 +60,12 @@
 
                 <div class="control-group">
                     <label>Breite: <span id="val-width">20</span></label>
-                    <input type="range" id="slider-width" min="5" max="50" value="20" class="styled-slider">
+                    <input type="range" id="slider-width" min="5" max="100" value="20" class="styled-slider">
                 </div>
 
                 <div class="control-group">
                     <label>Höhe: <span id="val-height">10</span></label>
-                    <input type="range" id="slider-height" min="3" max="20" value="10" class="styled-slider">
+                    <input type="range" id="slider-height" min="3" max="50" value="10" class="styled-slider">
                 </div>
 
                 <button class="glass-btn action-btn" onclick="triggerPythonSolver()">Berechnung starten</button>
@@ -75,6 +75,7 @@
 
                 <div class="canvas-toolbar glass-card"
                      style="padding: 10px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
+
                     <label><b>Werkzeug:</b></label>
                     <select id="tool-select" class="glass-select">
                         <option value="fixed">Festlager</option>
@@ -85,9 +86,19 @@
 
                     <div style="width: 1px; height: 20px; background: #ccc; margin: 0 10px;"></div>
 
-                    <label><b>Ziel-Masse:</b> <span id="val-mass">50</span>%</label>
+                    <label><b>Kraft:</b> <span id="val-force">1000</span>N</label>
+                    <input type="range" id="slider-force" min="100" max="2000" step="50" value="1000"
+                           class="styled-slider" style="width: 100px;">
+
+                    <div style="width: 1px; height: 20px; background: #ccc; margin: 0 10px;"></div>
+
+                    <label><b>Ziel:</b> <span id="val-mass">50</span>%</label>
                     <input type="range" id="slider-mass" min="10" max="100" value="50" class="styled-slider"
-                           style="width: 150px;">
+                           style="width: 100px;">
+
+                    <button class="glass-btn-small danger" onclick="resetAnalysis()" style="margin-left: auto;">↺
+                        Reset
+                    </button>
                 </div>
 
                 <canvas id="structureCanvas" width="800" height="400"
