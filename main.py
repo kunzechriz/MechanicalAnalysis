@@ -3,16 +3,12 @@ import sys
 import io
 import time
 
-# Importiere deine Struktur-Klasse
 from src.model.structure import Structure
-
-# Falls du die echte Optimierung schon fertig hast, entkommentiere diese Zeile:
-# from src.analysis.optimizer import run_optimization
+from src.analysis.optimizer import run_optimization
 
 app = Flask(__name__)
 
 
-# --- Log Capture System ---
 class LogCapture(list):
     def __enter__(self):
         self._stdout = sys.stdout
@@ -31,13 +27,11 @@ global_logs = ""
 
 @app.route('/')
 def index():
-    """Lädt die Hauptseite (Dashboard)"""
     return render_template('index.html')
 
 
 @app.route('/api/logs')
 def get_logs():
-    """Gibt die Logs an das Frontend zurück und leert den Puffer"""
     global global_logs
     logs_to_send = global_logs
     global_logs = ""
@@ -45,77 +39,86 @@ def get_logs():
 
 
 def append_log(text):
-    """Hilfsfunktion um Text in den globalen Log-Speicher zu schreiben"""
     global global_logs
     global_logs += text + "\n"
-    # Optional: Auch im echten Terminal anzeigen
     print(text)
 
 
 @app.route('/api/optimize', methods=['POST'])
 def optimize():
-    data = request.json
-
-    # 1. Parameter auslesen
-    width = data.get('width', 20)
-    height = data.get('height', 10)
-    mass_ratio = data.get('mass_ratio', 0.5)
-    supports = data.get('supports', {})
-    forces = data.get('forces', {})
-
-    append_log(f"Setup Structure {width}x{height}...")
-
-    # Struktur erstellen
-    s = Structure.create_grid(width, height)
-
-    # 2. Lager (Supports) setzen
-    for key, type in supports.items():
-        x, z = map(int, key.split(','))
-        node_id = z * width + x
-        if node_id < len(s.nodes):
-            if type == 'fixed':
-                s.nodes[node_id].fix_dofs([0, 1])
-                append_log(f" -> Fixed support at ({x}, {z})")
-            elif type == 'roller':
-                s.nodes[node_id].fix_dofs([1])
-                append_log(f" -> Roller support at ({x}, {z})")
-
-    # 3. Kräfte (Forces) setzen
-    for key, val in forces.items():
-        x, z = map(int, key.split(','))
-        node_id = z * width + x
-        fy = val.get('fy', 1000)
-        # Richtung beachten: Positive Kraft ist hier oft nach unten definiert (je nach deinem Solver)
-        s.last_aufbringen(node_id, 0, fy)
-        append_log(f" -> Force {fy}N at ({x}, {z})")
-
-    append_log("Starting Topology Optimization...")
-
     try:
-        # --- HIER DIE ECHTE LOGIK EINFÜGEN ---
-        # Aktuell simulieren wir die Berechnung, damit du siehst, dass das Terminal geht.
-        # Wenn dein 'run_optimization' funktioniert, ersetze die Schleife unten.
+        data = request.json
+        width = data.get('width', 20)
+        height = data.get('height', 10)
+        mass_ratio = data.get('mass_ratio', 0.5)
+        supports = data.get('supports', {})
+        forces = data.get('forces', {})
 
-        # run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=0.02)
+        append_log(f"Setup Structure {width}x{height}...")
 
-        # Simulation für das Web-Terminal Feedback:
-        for i in range(1, 11):
-            time.sleep(0.3)  # Simuliert Rechenzeit
-            # Hier würde normalerweise der echte Solver Fehlerwert stehen
-            append_log(f"Iteration {i}: Mass reduced to {100 - (i * 5)}%")
+        # 1. Immer volles Gitter erstellen (Startzustand)
+        s = Structure.create_grid(width, height)
+
+        # 2. Lager setzen
+        custom_fixed_dofs = []
+        for key, type in supports.items():
+            x_coord, z_coord = map(int, key.split(','))
+            node_id = z_coord * width + x_coord
+
+            if node_id < len(s.nodes):
+                if type == 'fixed':
+                    custom_fixed_dofs.append(2 * node_id)
+                    custom_fixed_dofs.append(2 * node_id + 1)
+                    append_log(f" -> Fixed support at Node {node_id}")
+                elif type == 'roller':
+                    custom_fixed_dofs.append(2 * node_id + 1)
+                    append_log(f" -> Roller support at Node {node_id}")
+
+        s.fixed_dofs = custom_fixed_dofs
+
+        # 3. Kräfte setzen
+        for key, val in forces.items():
+            x_coord, z_coord = map(int, key.split(','))
+            node_id = z_coord * width + x_coord
+            fy = float(val.get('fy', 1000))
+
+            if node_id < len(s.nodes):
+                if hasattr(s, 'last_aufbringen'):
+                    s.last_aufbringen(node_id, 0, fy)
+                    append_log(f" -> Force {fy}N at Node {node_id}")
+
+        append_log("Starting Topology Optimization...")
+
+        # 4. Optimierung starten
+        # Der Optimierer entscheidet jetzt, welche Knoten 'active=False' werden
+        final_structure = run_optimization(s, target_mass_ratio=mass_ratio)
 
         append_log("Optimization finished successfully.")
 
-    except Exception as e:
-        append_log(f"ERROR: {str(e)}")
-        return jsonify({"status": "error"}), 500
+        # 5. Ergebnis zurücksenden
+        # Wir senden ALLE Knoten zurück. Das Frontend zeichnet nur die mit active=True.
+        nodes_data = []
+        for n in final_structure.nodes:
+            nodes_data.append({
+                "x": n.x,
+                "z": n.z,
+                "active": n.active,
+                "u_x": getattr(n, 'u_x', 0.0),
+                "u_z": getattr(n, 'u_z', 0.0)
+            })
 
-    return jsonify({
-        "status": "done",
-        "final_mass": round(s.current_mass, 2) if hasattr(s, 'current_mass') else 0
-    })
+        return jsonify({
+            "status": "done",
+            "final_mass": round(final_structure.current_mass, 2) if hasattr(final_structure, 'current_mass') else 0,
+            "nodes": nodes_data
+        })
+
+    except Exception as e:
+        error_msg = f"INTERNAL ERROR: {str(e)}"
+        print(error_msg)
+        append_log(error_msg)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':
-    print("Starting Flask Server...")
     app.run(debug=True, port=5000)

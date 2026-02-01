@@ -172,3 +172,12 @@ body {
     background-color: #007aff;
     box-shadow: 0 0 8px rgba(0, 122, 255, 0.4);
 }.active { background-color: #00ff00; box-shadow: 0 0 5px #00ff00; }
+
+ .glass-btn-small.danger {
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+}
+.glass-btn-small.danger:hover {
+    background: #ef4444;
+    color: white;
+}
