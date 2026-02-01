@@ -2,6 +2,7 @@ import numpy as np
 from typing import List
 from .node import Node
 from .element import Element, Spring2D
+from ..analysis.graph_utils import check_connectivity
 
 
 class Structure:
@@ -121,21 +122,7 @@ class Structure:
                 adj[el.node_a.id].append(el.node_b.id)
                 adj[el.node_b.id].append(el.node_a.id)
 
-        visited = set()
-        queue = [n.id for n in fixed_nodes]
-        for start in queue:
-            visited.add(start)
-
-        idx = 0
-        while idx < len(queue):
-            curr = queue[idx]
-            idx += 1
-            for neighbor in adj[curr]:
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    queue.append(neighbor)
-
-        return len(visited) == len(active_nodes)
+        return check_connectivity(active_nodes, fixed_nodes, adj)
 
     def speichere_verschiebungen(self, u: np.ndarray):
         if u is None:
