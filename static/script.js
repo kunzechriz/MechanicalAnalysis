@@ -479,7 +479,6 @@ function renderDeformation(nodes, maxDisp) {
         }
     });
     ctx.stroke();
-
     nodes.forEach(n => {
         const drawX = offsetX + n.x * spacing + (n.ux * visualScale);
         const drawY = offsetY + n.z * spacing + (n.uz * visualScale);
