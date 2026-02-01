@@ -354,7 +354,6 @@ async function triggerKinematicAnalysis() {
 
     if (isShowingDeformation) {
         isShowingDeformation = false;
-        term.innerHTML += `<div>ℹ️ Reverting to structural view.</div>`;
 
         if (isShowingResult && lastOptimizedNodes) {
             renderOptimizedStructure(lastOptimizedNodes);
