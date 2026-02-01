@@ -351,10 +351,8 @@ let isShowingDeformation = false;
 
 async function triggerKinematicAnalysis() {
     const term = document.getElementById('terminal-content');
-
     if (isShowingDeformation) {
         isShowingDeformation = false;
-
         if (isShowingResult && lastOptimizedNodes) {
             renderOptimizedStructure(lastOptimizedNodes);
         } else {
@@ -365,9 +363,7 @@ async function triggerKinematicAnalysis() {
 
     isShowingDeformation = true;
     term.innerHTML = "<div style='opacity:0.6'>Calculating Deformation on CURRENT structure...</div>";
-
     const currentForce = parseFloat(document.getElementById('slider-force').value);
-
     let activeIndices = [];
 
     if (isShowingResult && lastOptimizedNodes) {
@@ -406,11 +402,11 @@ async function triggerKinematicAnalysis() {
 
             renderDeformation(result.nodes, result.max_disp);
         } else {
-            term.innerHTML += `<br><div style='color:#ef4444;'>⚠ Error: ${result.message}</div>`;
+            term.innerHTML += `<br><div style='color:#ef4444;'>Error: ${result.message}</div>`;
             isShowingDeformation = false;
         }
     } catch (e) {
-        term.innerHTML += `<br><div style='color:#ef4444;'>⚠ Network Error</div>`;
+        term.innerHTML += `<br><div style='color:#ef4444;'>Network Error</div>`;
         isShowingDeformation = false;
     }
 }
@@ -493,7 +489,6 @@ function renderDeformation(nodes, maxDisp) {
         ctx.arc(drawX, drawY, radius, 0, 2 * Math.PI);
         ctx.fillStyle = getHeatmapColor(n.disp, maxDisp);
         ctx.fill();
-
         const key = `${n.x},${n.z}`;
         if (gridState.supports[key]) drawSymbol(drawX, drawY, gridState.supports[key]);
         if (gridState.forces[key]) drawArrow(drawX, drawY);
