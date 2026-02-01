@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MechanicalDesign</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="background-shape shape-1"></div>
+<div class="background-shape shape-2"></div>
+
+<div class="main-container">
+    <header class="glass-header">
+        <div>
+            <h1>MechanicalDesign Pro</h1>
+            <small>Topology Optimization and Analysation</small>
+        </div>
+        <div id="connection-status">System Ready</div>
+    </header>
+
+    <div id="dashboard-view" class="dashboard-grid">
+        <div class="glass-card clickable" onclick="switchView('static-analysis')">
+            <div class="icon-title">
+                <div class="card-icon">📊</div>
+                <h3>Statische Analyse</h3>
+            </div>
+            <p>Berechnung von Verformung und Kräften</p>
+            <div style="margin-top: auto; color: #007aff; font-weight: bold;">Starten →</div>
+        </div>
+
+        <div class="glass-card clickable" onclick="console.log('Dynamic Analysis')">
+            <div class="icon-title">
+                <div class="card-icon">🌀</div>
+                <h3>Kinematische Analyse</h3>
+            </div>
+            <p>Untersuchung von Verformung der Struktur.</p>
+        </div>
+
+        <div class="glass-card clickable" id="upload-widget">
+            <div class="icon-title">
+                <div class="card-icon">📁</div>
+                <h3>Upload Object</h3>
+            </div>
+            <p>Importieren von Geometrien via Bild oder Koordinatenliste.</p>
+            <div class="upload-area">Datei auswählen</div>
+        </div>
+    </div>
+
+    <div id="static-analysis-view" style="display: none;">
+        <button class="glass-btn-small" onclick="switchView('dashboard')">← Zurück</button>
+
+        <div class="analysis-container glass-card"
+             style="margin-top: 20px; display: flex; gap: 30px; align-items: flex-start;">
+
+            <div class="controls-panel" style="width: 300px; flex-shrink: 0;">
+                <h2>Parameter</h2>
+                <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.1); margin-bottom: 20px;">
+
+                <div class="control-group">
+                    <label>Breite: <span id="val-width">20</span></label>
+                    <input type="range" id="slider-width" min="5" max="50" value="20" class="styled-slider">
+                </div>
+
+                <div class="control-group">
+                    <label>Höhe: <span id="val-height">10</span></label>
+                    <input type="range" id="slider-height" min="3" max="20" value="10" class="styled-slider">
+                </div>
+
+                <button class="glass-btn action-btn" onclick="triggerPythonSolver()">Berechnung starten</button>
+            </div>
+
+            <div class="canvas-wrapper" style="flex-grow: 1; position: relative;">
+
+                <div class="canvas-toolbar glass-card"
+                     style="padding: 10px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
+                    <label><b>Werkzeug:</b></label>
+                    <select id="tool-select" class="glass-select">
+                        <option value="fixed">Festlager</option>
+                        <option value="roller">Loslager</option>
+                        <option value="force">Kraft</option>
+                        <option value="eraser">Löschen</option>
+                    </select>
+
+                    <div style="width: 1px; height: 20px; background: #ccc; margin: 0 10px;"></div>
+
+                    <label><b>Ziel-Masse:</b> <span id="val-mass">50</span>%</label>
+                    <input type="range" id="slider-mass" min="10" max="100" value="50" class="styled-slider"
+                           style="width: 150px;">
+                </div>
+
+                <canvas id="structureCanvas" width="800" height="400"
+                        style="background: rgba(255,255,255,0.5); border-radius: 15px; cursor: crosshair;"></canvas>
+
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <span>>_ System Log</span>
+                        <span id="status-dot" class="dot"></span>
+                    </div>
+                    <div id="terminal-content" class="terminal-content">
+                        Ready for input...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
