@@ -27,7 +27,6 @@
                 <h3>Statische Analyse</h3>
             </div>
             <p>Topologieoptimierung und statische Analyse</p>
-            <div style="margin-top: auto; color: #007aff; font-weight: bold;">Starten →</div>
         </div>
 
         <div class="glass-card clickable" id="upload-widget">
@@ -36,7 +35,6 @@
                 <h3>Upload Object</h3>
             </div>
             <p>Importieren von Geometrien via Bild oder Koordinatenliste.</p>
-            <div class="upload-area">Datei auswählen</div>
         </div>
     </div>
 
@@ -83,7 +81,7 @@
                 <div class="canvas-toolbar glass-card"
                      style="padding: 10px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
 
-                    <label><b>Werkzeug:</b></label>
+                    <label><b>Werkzeuge:</b></label>
                     <select id="tool-select" class="glass-select">
                         <option value="fixed">Festlager</option>
                         <option value="roller">Loslager</option>
@@ -104,7 +102,7 @@
                            style="width: 100px;">
 
                     <button class="glass-btn-small danger" onclick="resetAnalysis()" style="margin-left: auto;">↺
-                        Reset
+                        Zurücksetzen
                     </button>
                 </div>
 
@@ -113,7 +111,7 @@
 
                 <div class="terminal-window">
                     <div class="terminal-header">
-                        <span>>_ System Log</span>
+                        <span>System Log</span>
                         <span id="status-dot" class="dot"></span>
                     </div>
                     <div id="terminal-content" class="terminal-content">
