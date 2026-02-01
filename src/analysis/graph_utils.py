@@ -1,9 +1,28 @@
-from ..model.structure import Structure
+from typing import List, Dict, Set
 
-def check_connectivity(structure: Structure) -> bool:
+def check_connectivity(active_nodes: List, fixed_nodes: List, adj_list: Dict[int, List[int]]) -> bool:
     """
     Prüft mittels Graphen-Algorithmus (BFS oder DFS), ob die Struktur
-    noch zusammenhängend ist und Lager erreichen kann.
+    noch zusammenhängend ist.
+    
+    Strategie:
+    Wir starten bei EINEM Lagerknoten und müssen von dort aus ALLE anderen
+    aktiven Knoten erreichen können. Wenn das gelingt, ist die Struktur intakt.
     """
-    # Später implementieren wir hier eine Breitensuche
-    pass
+    if not active_nodes or not fixed_nodes:
+        return False
+
+    start_node_id = fixed_nodes[0].id
+    visited = {start_node_id}
+    queue = [start_node_id]
+
+    idx = 0
+    while idx < len(queue):
+        curr = queue[idx]
+        idx += 1
+        for neighbor in adj_list.get(curr, []):
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(neighbor)
+
+    return len(visited) == len(active_nodes)
