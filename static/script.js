@@ -1,4 +1,3 @@
-// --- Globale Variablen & State ---
 const canvas = document.getElementById('structureCanvas');
 const ctx = canvas.getContext('2d');
 const toolSelect = document.getElementById('tool-select');
@@ -8,40 +7,66 @@ const sliderH = document.getElementById('slider-height');
 const sliderMass = document.getElementById('slider-mass');
 const sliderForce = document.getElementById('slider-force');
 
-// Zustand VOR der Optimierung (Editor)
 let gridState = {
     supports: {}, 
     forces: {},
-    nodesX: 20,
+    nodesX: 40,
     nodesY: 10
 };
 
 let isShowingResult = false;
 
-// --- Event Listeners ---
+sliderW.addEventListener('input', (e) => {
+    document.getElementById('val-width').innerText = e.target.value;
+    setBaseCase();
+});
 
-// Slider Inputs
-sliderW.addEventListener('input', (e) => { document.getElementById('val-width').innerText = e.target.value; resetAnalysis(); });
-sliderH.addEventListener('input', (e) => { document.getElementById('val-height').innerText = e.target.value; resetAnalysis(); });
+sliderH.addEventListener('input', (e) => {
+    document.getElementById('val-height').innerText = e.target.value;
+    setBaseCase();
+});
+
 sliderMass.addEventListener('input', (e) => { document.getElementById('val-mass').innerText = e.target.value; });
 sliderForce.addEventListener('input', (e) => { document.getElementById('val-force').innerText = e.target.value; });
 
-// Canvas Klick
 canvas.addEventListener('mousedown', (e) => {
-    // Wenn wir gerade das Ergebnis sehen, bricht ein Klick dieses ab und zeigt wieder den Editor
     if (isShowingResult) {
-        resetAnalysis(); 
+        setBaseCase();
         return;
     }
     handleCanvasClick(e);
 });
 
-// --- Core Logic ---
+function setBaseCase() {
+    isShowingResult = false;
+    const term = document.getElementById('terminal-content');
+    const statusDot = document.getElementById('status-dot');
+    term.innerHTML = "System reset. Base case applied.";
+    statusDot.classList.remove('active');
+
+    gridState.nodesX = parseInt(sliderW.value);
+    gridState.nodesY = parseInt(sliderH.value);
+
+    gridState.supports = {};
+    gridState.forces = {};
+
+    const leftBottom = `0,${gridState.nodesY - 1}`;
+    gridState.supports[leftBottom] = "roller";
+
+    const rightBottom = `${gridState.nodesX - 1},${gridState.nodesY - 1}`;
+    gridState.supports[rightBottom] = "fixed";
+
+    const topMiddleX = Math.floor(gridState.nodesX / 2);
+    const topMiddle = `${topMiddleX},0`;
+    gridState.forces[topMiddle] = { fy: 1000 };
+
+    updateCanvas();
+}
 
 function handleCanvasClick(e) {
     const rect = canvas.getBoundingClientRect();
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
-    
+
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
@@ -62,9 +87,7 @@ function applyTool(x, y) {
         gridState.supports[key] = tool;
         delete gridState.forces[key];
     } else if (tool === 'force') {
-        // Wir speichern hier nur DASS eine Kraft da ist. 
-        // Die Stärke (fy) nehmen wir später live vom Slider.
-        gridState.forces[key] = { fy: 1000 }; 
+        gridState.forces[key] = { fy: 1000 };
         delete gridState.supports[key];
     } else if (tool === 'eraser') {
         delete gridState.supports[key];
@@ -73,53 +96,42 @@ function applyTool(x, y) {
 }
 
 function calculateGridMetrics() {
-    // Werte holen (ParseInt wichtig für Mathe)
-    gridState.nodesX = parseInt(sliderW.value);
-    gridState.nodesY = parseInt(sliderH.value);
-    
     const padding = 40;
     const availWidth = canvas.width - (padding * 2);
     const availHeight = canvas.height - (padding * 2);
-    
-    // Berechne Abstand passend für Breite UND Höhe (quadratische Elemente)
+
     const spacing = Math.min(
         availWidth / (gridState.nodesX - 1),
         availHeight / (gridState.nodesY - 1)
     );
-    
-    // Zentrieren
+
     const offsetX = (canvas.width - (gridState.nodesX - 1) * spacing) / 2;
     const offsetY = (canvas.height - (gridState.nodesY - 1) * spacing) / 2;
-    
+
     return { spacing, offsetX, offsetY };
 }
 
-// --- Drawing: Editor (Gitter) ---
 function updateCanvas() {
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Gitterlinien
     ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    
+
     for (let y = 0; y < gridState.nodesY; y++) {
         for (let x = 0; x < gridState.nodesX; x++) {
             const posX = offsetX + x * spacing;
             const posY = offsetY + y * spacing;
 
-            // Linie nach rechts
             if (x < gridState.nodesX - 1) {
                 ctx.moveTo(posX, posY);
                 ctx.lineTo(posX + spacing, posY);
             }
-            // Linie nach unten
             if (y < gridState.nodesY - 1) {
                 ctx.moveTo(posX, posY);
                 ctx.lineTo(posX, posY + spacing);
             }
-            // Diagonalen (optional für Fachwerk-Look)
             if (x < gridState.nodesX - 1 && y < gridState.nodesY - 1) {
                 ctx.moveTo(posX, posY);
                 ctx.lineTo(posX + spacing, posY + spacing);
@@ -130,7 +142,6 @@ function updateCanvas() {
     }
     ctx.stroke();
 
-    // 2. Knoten & Objekte
     for (let x = 0; x < gridState.nodesX; x++) {
         for (let y = 0; y < gridState.nodesY; y++) {
             const key = `${x},${y}`;
@@ -139,7 +150,7 @@ function updateCanvas() {
 
             ctx.beginPath();
             ctx.arc(posX, posY, 3, 0, 2 * Math.PI);
-            ctx.fillStyle = '#3b82f6'; // Blau
+            ctx.fillStyle = '#3b82f6';
             ctx.fill();
 
             if (gridState.supports[key]) drawSymbol(posX, posY, gridState.supports[key]);
@@ -152,15 +163,13 @@ function renderOptimizedStructure(nodes) {
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Map erstellen: Welche Knoten sind noch aktiv?
     const activeMap = new Set();
     nodes.forEach(n => {
         if(n.active) activeMap.add(`${n.x},${n.z}`);
     });
 
-    // 2. Gitterlinien zeichnen (EXAKT wie im Editor, nur gefiltert)
-    ctx.strokeStyle = '#94a3b8'; // Gleiches Grau wie im Editor
-    ctx.lineWidth = 1;            // Gleiche Dicke wie im Editor
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1;
     ctx.beginPath();
 
     for (let y = 0; y < gridState.nodesY; y++) {
@@ -174,21 +183,17 @@ function renderOptimizedStructure(nodes) {
                     ctx.lineTo(posX + spacing, posY);
                 }
             }
-
-
             if (y < gridState.nodesY - 1) {
                 if (activeMap.has(`${x},${y}`) && activeMap.has(`${x},${y+1}`)) {
                     ctx.moveTo(posX, posY);
                     ctx.lineTo(posX, posY + spacing);
                 }
             }
-
             if (x < gridState.nodesX - 1 && y < gridState.nodesY - 1) {
                 if (activeMap.has(`${x},${y}`) && activeMap.has(`${x+1},${y+1}`)) {
                     ctx.moveTo(posX, posY);
                     ctx.lineTo(posX + spacing, posY + spacing);
                 }
-
                 if (activeMap.has(`${x+1},${y}`) && activeMap.has(`${x},${y+1}`)) {
                     ctx.moveTo(posX + spacing, posY);
                     ctx.lineTo(posX, posY + spacing);
@@ -200,7 +205,6 @@ function renderOptimizedStructure(nodes) {
 
     nodes.forEach(n => {
         if (!n.active) return;
-
         const posX = offsetX + n.x * spacing;
         const posY = offsetY + n.z * spacing;
 
@@ -235,7 +239,6 @@ function drawArrow(x, y) {
     ctx.moveTo(x, y - 25);
     ctx.lineTo(x, y);
     ctx.stroke();
-    // Pfeilspitze
     ctx.beginPath();
     ctx.moveTo(x - 5, y - 8);
     ctx.lineTo(x, y);
@@ -244,14 +247,7 @@ function drawArrow(x, y) {
 }
 
 function resetAnalysis() {
-    isShowingResult = false;
-    const term = document.getElementById('terminal-content');
-    const statusDot = document.getElementById('status-dot');
-    
-    term.innerHTML = "System reset. Ready for new input...";
-    statusDot.classList.remove('active');
-    
-    updateCanvas();
+    setBaseCase();
 }
 
 function switchView(viewName) {
@@ -261,7 +257,7 @@ function switchView(viewName) {
     if (viewName === 'static-analysis') {
         dashboard.style.display = 'none';
         staticView.style.display = 'block';
-        updateCanvas();
+        setBaseCase();
     } else {
         dashboard.style.display = 'grid';
         staticView.style.display = 'none';
@@ -271,7 +267,7 @@ function switchView(viewName) {
 async function triggerPythonSolver() {
     const term = document.getElementById('terminal-content');
     const statusDot = document.getElementById('status-dot');
-    
+
     term.innerHTML = "<div style='opacity:0.6'>System initialized. Calculation started...</div><br>";
     statusDot.classList.add('active');
 
@@ -292,14 +288,16 @@ async function triggerPythonSolver() {
     }, 500);
 
     const currentForce = parseFloat(sliderForce.value);
+    const qualityRate = parseFloat(document.getElementById('select-quality').value);
 
     const payload = {
         width: gridState.nodesX,
         height: gridState.nodesY,
         mass_ratio: parseInt(sliderMass.value) / 100,
         supports: gridState.supports,
+        removal_rate: qualityRate,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
-            acc[key] = { fy: currentForce }; 
+            acc[key] = { fy: currentForce };
             return acc;
         }, {})
     };
@@ -316,25 +314,27 @@ async function triggerPythonSolver() {
         }
 
         const result = await response.json();
-        
+
         if (result.status === 'done') {
-            term.innerHTML += `<br><div style='color:#007aff; font-weight:bold;'>✓ Optimization FINISHED.</div>
-                               <div>Final Mass: ${result.final_mass} kg</div>`;
-            
+            term.innerHTML += `<br><div style='color:#007aff; font-weight:bold;'>✓ Optimization FINISHED.</div>`;
+            term.scrollTop = term.scrollHeight;
+
             if (result.nodes) {
                 isShowingResult = true;
                 renderOptimizedStructure(result.nodes);
             }
         } else {
             term.innerHTML += `<br><div style='color:#ef4444;'>⚠ Server reported logical failure.</div>`;
+            term.scrollTop = term.scrollHeight;
         }
-        
+
     } catch (err) {
         term.innerHTML += `<br><div style='color:#ef4444; font-weight:bold;'>⚠ ERROR: ${err.message}</div>`;
+        term.scrollTop = term.scrollHeight;
     } finally {
         clearInterval(logInterval);
         statusDot.classList.remove('active');
     }
 }
 
-updateCanvas();
+setBaseCase();
