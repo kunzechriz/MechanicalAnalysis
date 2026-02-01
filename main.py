@@ -56,10 +56,8 @@ def optimize():
 
         append_log(f"Setup Structure {width}x{height}...")
 
-        # 1. Immer volles Gitter erstellen (Startzustand)
         s = Structure.create_grid(width, height)
 
-        # 2. Lager setzen
         custom_fixed_dofs = []
         for key, type in supports.items():
             x_coord, z_coord = map(int, key.split(','))
@@ -76,7 +74,6 @@ def optimize():
 
         s.fixed_dofs = custom_fixed_dofs
 
-        # 3. Kräfte setzen
         for key, val in forces.items():
             x_coord, z_coord = map(int, key.split(','))
             node_id = z_coord * width + x_coord
@@ -89,14 +86,12 @@ def optimize():
 
         append_log("Starting Topology Optimization...")
 
-        # 4. Optimierung starten
-        # Der Optimierer entscheidet jetzt, welche Knoten 'active=False' werden
+
         final_structure = run_optimization(s, target_mass_ratio=mass_ratio)
 
         append_log("Optimization finished successfully.")
 
-        # 5. Ergebnis zurücksenden
-        # Wir senden ALLE Knoten zurück. Das Frontend zeichnet nur die mit active=True.
+
         nodes_data = []
         for n in final_structure.nodes:
             nodes_data.append({

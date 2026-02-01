@@ -1,4 +1,3 @@
-// --- Globale Variablen & State ---
 const canvas = document.getElementById('structureCanvas');
 const ctx = canvas.getContext('2d');
 const toolSelect = document.getElementById('tool-select');
@@ -8,7 +7,6 @@ const sliderH = document.getElementById('slider-height');
 const sliderMass = document.getElementById('slider-mass');
 const sliderForce = document.getElementById('slider-force');
 
-// Zustand VOR der Optimierung (Editor)
 let gridState = {
     supports: {}, 
     forces: {},
@@ -18,17 +16,13 @@ let gridState = {
 
 let isShowingResult = false;
 
-// --- Event Listeners ---
 
-// Slider Inputs
 sliderW.addEventListener('input', (e) => { document.getElementById('val-width').innerText = e.target.value; resetAnalysis(); });
 sliderH.addEventListener('input', (e) => { document.getElementById('val-height').innerText = e.target.value; resetAnalysis(); });
 sliderMass.addEventListener('input', (e) => { document.getElementById('val-mass').innerText = e.target.value; });
 sliderForce.addEventListener('input', (e) => { document.getElementById('val-force').innerText = e.target.value; });
 
-// Canvas Klick
 canvas.addEventListener('mousedown', (e) => {
-    // Wenn wir gerade das Ergebnis sehen, bricht ein Klick dieses ab und zeigt wieder den Editor
     if (isShowingResult) {
         resetAnalysis(); 
         return;
@@ -36,7 +30,6 @@ canvas.addEventListener('mousedown', (e) => {
     handleCanvasClick(e);
 });
 
-// --- Core Logic ---
 
 function handleCanvasClick(e) {
     const rect = canvas.getBoundingClientRect();
@@ -62,8 +55,7 @@ function applyTool(x, y) {
         gridState.supports[key] = tool;
         delete gridState.forces[key];
     } else if (tool === 'force') {
-        // Wir speichern hier nur DASS eine Kraft da ist. 
-        // Die Stärke (fy) nehmen wir später live vom Slider.
+
         gridState.forces[key] = { fy: 1000 }; 
         delete gridState.supports[key];
     } else if (tool === 'eraser') {
@@ -73,7 +65,6 @@ function applyTool(x, y) {
 }
 
 function calculateGridMetrics() {
-    // Werte holen (ParseInt wichtig für Mathe)
     gridState.nodesX = parseInt(sliderW.value);
     gridState.nodesY = parseInt(sliderH.value);
     
@@ -81,25 +72,21 @@ function calculateGridMetrics() {
     const availWidth = canvas.width - (padding * 2);
     const availHeight = canvas.height - (padding * 2);
     
-    // Berechne Abstand passend für Breite UND Höhe (quadratische Elemente)
     const spacing = Math.min(
         availWidth / (gridState.nodesX - 1),
         availHeight / (gridState.nodesY - 1)
     );
     
-    // Zentrieren
     const offsetX = (canvas.width - (gridState.nodesX - 1) * spacing) / 2;
     const offsetY = (canvas.height - (gridState.nodesY - 1) * spacing) / 2;
     
     return { spacing, offsetX, offsetY };
 }
 
-// --- Drawing: Editor (Gitter) ---
 function updateCanvas() {
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Gitterlinien
     ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -109,17 +96,14 @@ function updateCanvas() {
             const posX = offsetX + x * spacing;
             const posY = offsetY + y * spacing;
 
-            // Linie nach rechts
             if (x < gridState.nodesX - 1) {
                 ctx.moveTo(posX, posY);
                 ctx.lineTo(posX + spacing, posY);
             }
-            // Linie nach unten
             if (y < gridState.nodesY - 1) {
                 ctx.moveTo(posX, posY);
                 ctx.lineTo(posX, posY + spacing);
             }
-            // Diagonalen (optional für Fachwerk-Look)
             if (x < gridState.nodesX - 1 && y < gridState.nodesY - 1) {
                 ctx.moveTo(posX, posY);
                 ctx.lineTo(posX + spacing, posY + spacing);
@@ -130,7 +114,6 @@ function updateCanvas() {
     }
     ctx.stroke();
 
-    // 2. Knoten & Objekte
     for (let x = 0; x < gridState.nodesX; x++) {
         for (let y = 0; y < gridState.nodesY; y++) {
             const key = `${x},${y}`;
@@ -152,15 +135,13 @@ function renderOptimizedStructure(nodes) {
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Map erstellen: Welche Knoten sind noch aktiv?
     const activeMap = new Set();
     nodes.forEach(n => {
         if(n.active) activeMap.add(`${n.x},${n.z}`);
     });
 
-    // 2. Gitterlinien zeichnen (EXAKT wie im Editor, nur gefiltert)
-    ctx.strokeStyle = '#94a3b8'; // Gleiches Grau wie im Editor
-    ctx.lineWidth = 1;            // Gleiche Dicke wie im Editor
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1;
     ctx.beginPath();
 
     for (let y = 0; y < gridState.nodesY; y++) {
@@ -235,7 +216,6 @@ function drawArrow(x, y) {
     ctx.moveTo(x, y - 25);
     ctx.lineTo(x, y);
     ctx.stroke();
-    // Pfeilspitze
     ctx.beginPath();
     ctx.moveTo(x - 5, y - 8);
     ctx.lineTo(x, y);
