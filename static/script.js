@@ -493,3 +493,134 @@ function renderDeformation(nodes, maxDisp) {
         if (gridState.forces[key]) drawArrow(drawX, drawY);
     });
 }
+
+//-------------------------------------------------------------------------------------------------------
+// Kraftanalyse
+//-------------------------------------------------------------------------------------------------------
+let isShowingForces = false;
+
+async function triggerForceAnalysis() {
+    const term = document.getElementById('terminal-content');
+
+    if (isShowingForces) {
+        isShowingForces = false;
+        term.innerHTML += "<div style='opacity:0.6'>Kraftanalyse ausgeblendet.</div>";
+        // Zurück zum Standard-View (Optimiert oder Basis)
+        if (isShowingResult && lastOptimizedNodes) {
+            renderOptimizedStructure(lastOptimizedNodes);
+        } else {
+            updateCanvas();
+        }
+        return;
+    }
+
+    isShowingForces = true;
+    if (isShowingDeformation) isShowingDeformation = false;
+
+    term.innerHTML = "<div style='opacity:0.6'>Calculating Forces...</div>";
+
+    const currentForce = parseFloat(document.getElementById('slider-force').value);
+    let activeIndices = [];
+
+    if (isShowingResult && lastOptimizedNodes) {
+        lastOptimizedNodes.forEach((n, index) => {
+            if (n.active) activeIndices.push(index);
+        });
+    } else {
+        activeIndices = null;
+    }
+
+    const payload = {
+        width: gridState.nodesX,
+        height: gridState.nodesY,
+        supports: gridState.supports,
+        active_nodes: activeIndices,
+        forces: Object.keys(gridState.forces).reduce((acc, key) => {
+            acc[key] = { fy: currentForce };
+            return acc;
+        }, {})
+    };
+
+    try {
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'done') {
+            term.innerHTML += `<br><div style='color:#f59e0b;'>Kraftanalyse berechnet. (Blau=Zug, Rot=Druck)</div>`;
+            term.scrollTop = term.scrollHeight;
+
+            renderForceHeatmap(result.nodes, result.elements);
+        } else {
+            term.innerHTML += `<br><div style='color:#ef4444;'>Error: ${result.message}</div>`;
+            isShowingForces = false;
+        }
+    } catch (e) {
+        term.innerHTML += `<br><div style='color:#ef4444;'>Network Error</div>`;
+        isShowingForces = false;
+    }
+}
+
+function renderForceHeatmap(nodes, elements) {
+    const { spacing, offsetX, offsetY } = calculateGridMetrics();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let maxForce = 0;
+    elements.forEach(el => {
+        if (Math.abs(el.force) > maxForce) maxForce = Math.abs(el.force);
+    });
+    if (maxForce === 0) maxForce = 1;
+
+    const nodeMap = new Map();
+    nodes.forEach(n => nodeMap.set(n.id, n));
+
+    elements.forEach(el => {
+        const nA = nodeMap.get(el.a);
+        const nB = nodeMap.get(el.b);
+
+        if (!nA || !nB) return;
+
+        const x1 = offsetX + nA.x * spacing;
+        const y1 = offsetY + nA.z * spacing;
+        const x2 = offsetX + nB.x * spacing;
+        const y2 = offsetY + nB.z * spacing;
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+
+        const force = el.force;
+        const intensity = Math.abs(force) / maxForce;
+
+        ctx.lineWidth = 1 + (4 * intensity);
+
+        const alpha = 0.3 + (0.7 * intensity);
+
+        if (force >= 0) {
+            ctx.strokeStyle = `rgba(59, 130, 246, ${alpha})`;
+        } else {
+            ctx.strokeStyle = `rgba(239, 68, 68, ${alpha})`;
+        }
+
+        ctx.stroke();
+    });
+
+    nodes.forEach(n => {
+
+        const posX = offsetX + n.x * spacing;
+        const posY = offsetY + n.z * spacing;
+
+        ctx.beginPath();
+        ctx.arc(posX, posY, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = '#3b82f6'; // Standard Blau
+        ctx.fill();
+
+        const key = `${n.x},${n.z}`;
+        if (gridState.supports[key]) drawSymbol(posX, posY, gridState.supports[key]);
+        if (gridState.forces[key]) drawArrow(posX, posY);
+    });
+}

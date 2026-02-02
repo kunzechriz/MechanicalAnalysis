@@ -34,6 +34,7 @@ class Structure:
         node_b = self.nodes[node_id_b]
 
         element = Spring2D(node_a, node_b, steifigkeit)
+        element.id = len(self.elements)
         self.elements.append(element)
 
     def last_aufbringen(self, node_id: int, fx: float, fz: float):
@@ -106,19 +107,6 @@ class Structure:
                 energien[element.node_a.id] += e_val / 2.0
                 energien[element.node_b.id] += e_val / 2.0
         return energien
-
-    def berechne_stabkraefte(self, u_global: np.ndarray):
-        kraefte = []
-        for element in self.elements:
-            if element.node_a.active and element.node_b.active:
-                kraft = element.berechne_kraft(u_global)
-                # Wir speichern: [NodeA_ID, NodeB_ID, Kraft]
-                kraefte.append({
-                    "a": element.node_a.id,
-                    "b": element.node_b.id,
-                    "force": kraft
-                })
-        return kraefte
 
     def check_stability(self) -> bool:
         active_nodes = [n for n in self.nodes if n.active]
@@ -254,3 +242,44 @@ class Structure:
                     struct.element_hinzufuegen(top_right_id, bottom_left_id, steifigkeit=k_diag)
 
         return struct
+
+    def berechne_stabkraefte(self, u_global):
+        results = []
+
+        for el in self.elements:
+            if not (el.node_a.active and el.node_b.active):
+                continue
+            idx_a = el.node_a.global_dof_indices
+            idx_b = el.node_b.global_dof_indices
+
+            ua = u_global[idx_a]  # [ux, uz]
+            ub = u_global[idx_b]  # [ux, uz]
+
+            pos_a = np.array([el.node_a.x, el.node_a.z])
+            pos_b = np.array([el.node_b.x, el.node_b.z])
+
+            diff = pos_b - pos_a
+            length = np.linalg.norm(diff)
+            if length == 0: continue
+            n = diff / length
+
+            delta_u = ub - ua
+            dl = np.dot(delta_u, n)
+
+            if hasattr(el, 'steifigkeit'):
+                k = el.steifigkeit
+            elif hasattr(el, 'stiffness'):
+                k = el.stiffness
+            else:
+                k = 1.0
+
+            force = k * dl
+
+            results.append({
+                'id': el.id,
+                'a': el.node_a.id,
+                'b': el.node_b.id,
+                'force': force
+            })
+
+        return results
