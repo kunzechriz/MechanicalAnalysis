@@ -1,19 +1,20 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, Response, stream_with_context
 import sys
+import json
 
 from src.model.structure import Structure
 from src.analysis.optimizer import run_optimization
-
-#initialize (flask)-server
+########################################################################################################
+#       Initialisiere Flask Server
+########################################################################################################
 app = Flask(__name__)
 @app.route('/')
 def index():
     return render_template('index.html')
 
-
-#-----------------------------------------------------------------------------------------------------#
-#Logging
-#-----------------------------------------------------------------------------------------------------#
+########################################################################################################
+#       Logging to UI
+########################################################################################################
 class OutputTee(object):
     def __init__(self, original_stdout):
         self.original_stdout = original_stdout
@@ -21,7 +22,6 @@ class OutputTee(object):
     def write(self, message):
         self.original_stdout.write(message)
         global global_logs
-
         if "GET /api/logs" not in message:
             global_logs += message
 
@@ -30,7 +30,6 @@ class OutputTee(object):
 
 
 global_logs = ""
-
 if not isinstance(sys.stdout, OutputTee):
     sys.stdout = OutputTee(sys.stdout)
 
@@ -43,9 +42,9 @@ def get_logs():
     return jsonify({"logs": logs_to_send})
 
 
-#-----------------------------------------------------------------------------------------------------#
-# API Schnittstelle von Frontend zu Backend für Topologieoptimierung
-#-----------------------------------------------------------------------------------------------------#
+########################################################################################################
+#       Verbinde Optimierung mit UI
+########################################################################################################
 @app.route('/api/optimize', methods=['POST'])
 def optimize():
     try:
@@ -57,67 +56,54 @@ def optimize():
         forces = data.get('forces', {})
         removal_rate = data.get('removal_rate', 0.01)
 
-        print(f"Setup Structure {width}x{height} with rate {removal_rate}...")
-
         s = Structure.create_grid(width, height)
 
         custom_fixed_dofs = []
         for key, type in supports.items():
             x_coord, z_coord = map(int, key.split(','))
             node_id = z_coord * width + x_coord
-
             if node_id < len(s.nodes):
                 if type == 'fixed':
                     s.nodes[node_id].fixed = [True, True]
                     custom_fixed_dofs.append(2 * node_id)
                     custom_fixed_dofs.append(2 * node_id + 1)
-                    print(f" -> Fixed support at Node {node_id}")
                 elif type == 'roller':
                     s.nodes[node_id].fixed = [False, True]
                     custom_fixed_dofs.append(2 * node_id + 1)
-                    print(f" -> Roller support at Node {node_id}")
-
         s.fixed_dofs = custom_fixed_dofs
 
         for key, val in forces.items():
             x_coord, z_coord = map(int, key.split(','))
             node_id = z_coord * width + x_coord
             fy = float(val.get('fy', 1000))
-
             if node_id < len(s.nodes):
                 if hasattr(s, 'last_aufbringen'):
                     s.last_aufbringen(node_id, 0, fy)
-                    print(f" -> Force {fy}N at Node {node_id}")
 
-        print("Starting Topology Optimization...")
+        def generate():
+            gen = run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=removal_rate)
+            for step_struct, is_done, msg in gen:
+                nodes_data = []
+                for n in step_struct.nodes:
+                    nodes_data.append({
+                        "x": n.x, "z": n.z, "active": n.active
+                    })
 
-        final_structure = run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=removal_rate)
+                resp = {
+                    "status": "finished" if is_done else "running",
+                    "message": msg,
+                    "nodes": nodes_data
+                }
+                yield json.dumps(resp) + "\n"
 
-        print("Optimization finished successfully.")
-
-        nodes_data = []
-        for n in final_structure.nodes:
-            nodes_data.append({
-                "x": n.x,
-                "z": n.z,
-                "active": n.active,
-                "u_x": getattr(n, 'u_x', 0.0),
-                "u_z": getattr(n, 'u_z', 0.0)
-            })
-
-        return jsonify({
-            "status": "done",
-            "nodes": nodes_data
-        })
+        return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
 
     except Exception as e:
-        error_msg = f"INTERNAL ERROR: {str(e)}"
-        print(error_msg)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-#-----------------------------------------------------------------------------------------------------#
-# API Schnittstelle für Belastunganalyse
-#-----------------------------------------------------------------------------------------------------#
+########################################################################################################
+#       Verformungsanalyse verbinden mit UI
+########################################################################################################
 @app.route('/api/analyze', methods=['POST'])
 def analyze_kinematics():
     try:
@@ -126,7 +112,6 @@ def analyze_kinematics():
         height = data.get('height', 10)
         supports = data.get('supports', {})
         forces = data.get('forces', {})
-
         active_indices = data.get('active_nodes', None)
 
         s = Structure.create_grid(width, height)
@@ -141,7 +126,6 @@ def analyze_kinematics():
         for key, type in supports.items():
             x_coord, z_coord = map(int, key.split(','))
             node_id = z_coord * width + x_coord
-
             if node_id < len(s.nodes) and s.nodes[node_id].active:
                 if type == 'fixed':
                     s.nodes[node_id].fixed = [True, True]
@@ -156,7 +140,6 @@ def analyze_kinematics():
             x_coord, z_coord = map(int, key.split(','))
             node_id = z_coord * width + x_coord
             fy = float(val.get('fy', 1000))
-
             if node_id < len(s.nodes) and s.nodes[node_id].active:
                 s.last_aufbringen(node_id, 0, fy)
 
@@ -173,11 +156,9 @@ def analyze_kinematics():
         for i, node in enumerate(s.nodes):
             if not node.active:
                 continue
-
             ux = u[2 * i]
             uz = u[2 * i + 1]
             total_disp = (ux ** 2 + uz ** 2) ** 0.5
-
             if total_disp > max_disp:
                 max_disp = total_disp
 
@@ -198,8 +179,8 @@ def analyze_kinematics():
         })
 
     except Exception as e:
-        print(f"ERROR in analyze: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

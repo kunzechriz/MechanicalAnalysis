@@ -2,6 +2,9 @@ import numpy as np
 from abc import ABC, abstractmethod
 from .node import Node
 
+########################################################################################################
+#       Abstrakte Klasse um 3D Struktur später zu ermöglichen
+########################################################################################################
 class Element(ABC):
     def __init__(self, node_a: Node, node_b: Node, steifigkeit: float):
         self.node_a = node_a
@@ -23,7 +26,9 @@ class Element(ABC):
     @abstractmethod
     def berechne_verformungsenergie(self, u_global: np.ndarray) -> float:
         pass
-
+########################################################################################################
+#       Federn für 2D Struktur
+########################################################################################################
 class Spring2D(Element):
     def _berechne_richtungsvektor(self) -> np.ndarray:
         """

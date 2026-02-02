@@ -4,8 +4,9 @@ from .node import Node
 from .element import Element, Spring2D
 from ..analysis.graph_utils import check_connectivity
 
-#ganze Balkenstruktur
-
+########################################################################################################
+#       Baue Struktur aus Knoten und Federn auf
+########################################################################################################
 class Structure:
     def __init__(self):
         self.nodes: List[Node] = []

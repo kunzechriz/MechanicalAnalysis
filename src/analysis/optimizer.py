@@ -1,3 +1,8 @@
+import time
+
+########################################################################################################
+#       nach Gewichtung symmetrie erzwingen
+########################################################################################################
 def symmetrize_energies(structure, energies, width):
     height = getattr(structure, 'height', len(structure.nodes) // width)
     limit_x = (width + 1) // 2
@@ -13,7 +18,9 @@ def symmetrize_energies(structure, energies, width):
                 energies[id_right] = avg
     return energies
 
-
+########################################################################################################
+#       kleines Feder-Energie-Rauschen filtern
+########################################################################################################
 def filter_energies(structure, energies):
     smoothed_energies = energies.copy()
     neighbor_weight = 0.8
@@ -37,9 +44,10 @@ def filter_energies(structure, energies):
 
     return smoothed_energies
 
-
+########################################################################################################
+#       am Ende Struktur verdicken (verschönert und leifert physikalischere Ergebnisse)
+########################################################################################################
 def verdicke_struktur(structure):
-
     width = getattr(structure, 'width', 0)
     if width == 0: return
 
@@ -62,10 +70,8 @@ def verdicke_struktur(structure):
         has_right = (x < width - 1) and (right in active_set)
 
         if not has_left and not has_right:
-
             if x < width - 1:
                 nodes_to_activate.add(right)
-
 
         has_up = (z > 0) and (up in active_set)
         has_down = (z < height - 1) and (down in active_set)
@@ -77,7 +83,6 @@ def verdicke_struktur(structure):
     final_activation = set()
     for nid in nodes_to_activate:
         final_activation.add(nid)
-
         z = nid // width
         x = nid % width
         x_mirror = width - 1 - x
@@ -94,12 +99,6 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
     start_count = len(initial_active)
     target_count = int(start_count * target_mass_ratio)
 
-    print(f"=== OPTIMIERUNG GESTARTET (MBB Mode) ===")
-    print(f"Start: {start_count} -> Ziel: {target_count}")
-    print("-" * 65)
-    print(f"{'Iter':<5} | {'Aktuell':<8} | {'Ziel':<8} | {'Delta'}")
-    print("-" * 65)
-
     iteration = 0
     last_count = -1
     stagnation_counter = 0
@@ -111,9 +110,12 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
         current_active = [n for n in structure.nodes if n.active]
         current_count = len(current_active)
 
+        #yield für Zwischenstand der Optimierung (an UI senden)
+        yield structure, False, f"Iteration {iteration}: {current_count} Nodes"
+        time.sleep(0.05)
+
         if current_count <= target_count:
-            print("-" * 65)
-            print(f"ZIEL ERREICHT: {current_count} Knoten.")
+            yield structure, True, f"ZIEL ERREICHT: {current_count} Knoten."
             break
 
         if current_count in count_history[-4:]:
@@ -126,8 +128,7 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
         if len(count_history) > 10: count_history.pop(0)
 
         if stagnation_counter >= 10:
-            print("-" * 65)
-            print(f"ABBRUCH: Optimierung stagniert bei {current_count} Knoten.")
+            yield structure, True, "ABBRUCH: Stagnation"
             break
 
         last_count = current_count
@@ -137,7 +138,7 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
 
         u = structure.loese_system()
         if u is None:
-            print("Abbruch: Struktur instabil.")
+            yield structure, True, "Abbruch: Instabil"
             break
 
         raw_energies = structure.berechne_knoten_energien(u)
@@ -177,11 +178,9 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
             is_valid = True
             for pid in pair:
                 n_obj = structure.nodes[pid]
-
                 is_fixed = False
                 if hasattr(n_obj, 'fixed') and n_obj.fixed:
                     if any(n_obj.fixed): is_fixed = True
-
                 has_force = False
                 if hasattr(structure, 'forces') and pid in structure.forces:
                     has_force = True
@@ -233,20 +232,9 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
                 else:
                     for pid in pair: structure.nodes[pid].active = True
 
-        delta = last_count - len([n for n in structure.nodes if n.active])
-        print(
-            f"{iteration:<5} | {len([n for n in structure.nodes if n.active]):<8} | {target_count:<8} | -{delta} Knoten")
-
-    print("Post-Processing: Strukturelle Verdickung...")
-
     structure.fuelle_loecher()
-
     verdicke_struktur(structure)
-
     structure.fuelle_loecher()
     structure.entferne_tote_aeste()
 
-    final = len([n for n in structure.nodes if n.active])
-    print(f"Fertig. Endgültige Knotenanzahl: {final}")
-
-    return structure
+    yield structure, True, "Optimierung beendet."
