@@ -2,11 +2,10 @@ from typing import List, Dict, Set
 
 def check_connectivity(active_nodes: List, fixed_nodes: List, adj_list: Dict[int, List[int]]) -> bool:
     """
-    Prüft mittels Graphen-Algorithmus (BFS oder DFS), ob die Struktur
+    Prüft mittels Graphen-Algorithmus, ob die Struktur
     noch zusammenhängend ist.
     
-    Strategie:
-    Wir starten bei EINEM Lagerknoten und müssen von dort aus ALLE anderen
+    Wir starten bei einem Lagerknoten und müssen von dort aus ALLE anderen
     aktiven Knoten erreichen können. Wenn das gelingt, ist die Struktur intakt.
     """
     if not active_nodes or not fixed_nodes:

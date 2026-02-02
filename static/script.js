@@ -536,3 +536,229 @@ function renderForceHeatmap(nodes, elements) {
         if (gridState.forces[key]) drawArrow(posX, posY);
     });
 }
+
+//-----------------------------------------------------------------------------------------------
+// Verbinde Speichern mit Backend
+//-----------------------------------------------------------------------------------------------
+async function triggerSaveProject() {
+    const nameInput = document.getElementById('project-name');
+    const name = nameInput.value.trim();
+    const term = document.getElementById('terminal-content');
+
+    if (!name) {
+        alert("Bitte gib einen Namen ein!");
+        return;
+    }
+
+    // NEU: Aktive Knoten ermitteln (falls Optimierung lief)
+    let activeNodesList = null;
+    if (lastOptimizedNodes) {
+        activeNodesList = [];
+        lastOptimizedNodes.forEach((node, index) => {
+            if (node.active) {
+                activeNodesList.push(index); // Index entspricht der ID
+            }
+        });
+    }
+
+    const payload = {
+        name: name,
+        width: gridState.nodesX,
+        height: gridState.nodesY,
+        supports: gridState.supports,
+        forces: gridState.forces,
+        active_nodes: activeNodesList // Wird an das Backend gesendet (oder null)
+    };
+
+    try {
+        const response = await fetch('/api/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            term.innerHTML += `<br><div style='color:#10b981;'>💾 ${result.message}</div>`;
+            term.scrollTop = term.scrollHeight;
+            nameInput.value = "";
+            toggleSaveUI(false);
+        } else {
+            term.innerHTML += `<br><div style='color:#ef4444;'>Fehler: ${result.message}</div>`;
+        }
+
+    } catch (e) {
+        term.innerHTML += `<br><div style='color:#ef4444;'>Netzwerkfehler</div>`;
+    }
+}
+function toggleSaveUI(showInput) {
+    const initialDiv = document.getElementById('save-initial');
+    const formDiv = document.getElementById('save-form');
+
+    if (showInput) {
+        initialDiv.style.display = 'none';
+        formDiv.style.display = 'flex';
+        document.getElementById('project-name').focus();
+    } else {
+        initialDiv.style.display = 'block';
+        formDiv.style.display = 'none';
+    }
+}
+async function loadProjectList() {
+    const listContainer = document.getElementById('project-list');
+    listContainer.innerHTML = "<p>Lade...</p>";
+
+    try {
+        const res = await fetch('/api/projects');
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            listContainer.innerHTML = "";
+            if (data.projects.length === 0) {
+                listContainer.innerHTML = "<p>Keine gespeicherten Projekte.</p>";
+                return;
+            }
+
+            data.projects.forEach(proj => {
+                const card = document.createElement('div');
+                card.className = "glass-card clickable";
+                card.style.padding = "10px 15px";
+                card.style.minWidth = "150px";
+                card.innerHTML = `
+                    <strong>${proj.name}</strong><br>
+                    <small style='opacity:0.6'>${proj.width}x${proj.height}</small>
+                `;
+                card.onclick = () => restoreProject(proj);
+                listContainer.appendChild(card);
+            });
+        }
+    } catch (e) {
+        listContainer.innerHTML = "<p style='color:red'>Fehler beim Laden.</p>";
+    }
+}
+
+function restoreProject(proj) {
+    switchView('static-analysis');
+
+    document.getElementById('slider-width').value = proj.width;
+    document.getElementById('slider-height').value = proj.height;
+    document.getElementById('val-width').innerText = proj.width;
+    document.getElementById('val-height').innerText = proj.height;
+
+    gridState.nodesX = proj.width;
+    gridState.nodesY = proj.height;
+    gridState.supports = proj.supports;
+    gridState.forces = proj.forces;
+
+    if (proj.active_nodes && proj.active_nodes.length > 0) {
+        isShowingResult = true;
+        lastOptimizedNodes = reconstructNodes(proj.width, proj.height, proj.active_nodes);
+        renderOptimizedStructure(lastOptimizedNodes);
+
+        document.getElementById('terminal-content').innerHTML = `Projekt '${proj.name}' (Optimiert) geladen.`;
+    } else {
+        // Nur Setup laden
+        isShowingResult = false;
+        lastOptimizedNodes = null;
+        updateCanvas();
+        document.getElementById('terminal-content').innerHTML = `Projekt-Setup '${proj.name}' geladen.`;
+    }
+}
+function reconstructNodes(w, h, activeIndices) {
+    const nodes = [];
+    const activeSet = new Set(activeIndices);
+
+    for (let z = 0; z < h; z++) {
+        for (let x = 0; x < w; x++) {
+            const id = z * w + x;
+            nodes.push({
+                id: id,
+                x: x,
+                z: z,
+                active: activeSet.has(id),
+                ux: 0, uz: 0
+            });
+        }
+    }
+    return nodes;
+}
+function startNewProject() {
+    setBaseCase();
+    switchView('static-analysis');
+}
+async function loadAndShowProjects() {
+    const btnCard = document.getElementById('btn-open-project');
+    const wrapper = document.getElementById('saved-projects-wrapper');
+    const listContainer = document.getElementById('project-list');
+
+    // Swap
+    btnCard.style.display = 'none';
+    wrapper.style.display = 'block';
+
+    listContainer.innerHTML = "<p style='font-size:0.9em; opacity:0.6; padding:10px;'>Lade...</p>";
+
+    try {
+        const res = await fetch('/api/projects');
+        const data = await res.json();
+        listContainer.innerHTML = "";
+
+        if (data.status === 'success') {
+            if (data.projects.length === 0) {
+                listContainer.innerHTML = "<p style='font-size:0.9em; padding:10px;'>Keine Projekte gefunden.</p>";
+                return;
+            }
+
+            // Liste sortieren (neueste zuerst)
+            data.projects.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            data.projects.forEach(proj => {
+                const item = document.createElement('div');
+
+                // --- STYLING WIE IM SCREENSHOT ---
+                item.style.padding = "15px";
+                item.style.background = "#f8fafc"; // Helles Weiß/Grau wie im Bild
+                item.style.borderRadius = "15px";  // Stärker abgerundet
+                item.style.cursor = "pointer";
+                item.style.display = "flex";
+                item.style.flexDirection = "column";
+                item.style.gap = "2px";
+                item.style.transition = "transform 0.1s, background 0.1s";
+
+                // Hover Effekt
+                item.onmouseenter = () => {
+                    item.style.background = "#ffffff";
+                    item.style.boxShadow = "0 4px 6px rgba(0,0,0,0.05)";
+                };
+                item.onmouseleave = () => {
+                    item.style.background = "#f8fafc";
+                    item.style.boxShadow = "none";
+                };
+
+                // Datum formatieren
+                const dateObj = new Date(proj.timestamp);
+                const dateStr = dateObj.toLocaleDateString('de-DE');
+
+                item.innerHTML = `
+                    <div style="font-weight: 700; font-size: 1.1em; color: #f59e0b;">${proj.name}</div>
+                    <div style="font-size: 0.85em; color: #64748b;">${proj.width}×${proj.height} Grid</div>
+                    <div style="font-size: 0.75em; color: #94a3b8;">${dateStr}</div>
+                `;
+
+                item.onclick = () => restoreProject(proj);
+                listContainer.appendChild(item);
+            });
+        }
+    } catch (e) {
+        listContainer.innerHTML = "<p style='color:red; font-size:0.8em; padding:10px;'>Fehler beim Laden.</p>";
+        console.error(e);
+    }
+}
+
+function hideProjectList() {
+    const btnCard = document.getElementById('btn-open-project');
+    const wrapper = document.getElementById('saved-projects-wrapper');
+
+    wrapper.style.display = 'none';
+    btnCard.style.display = 'flex';
+}

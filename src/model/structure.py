@@ -1,9 +1,11 @@
 import numpy as np
 from typing import List
+from tinydb import TinyDB, Query
+import os
+
 from .node import Node
 from .element import Element, Spring2D
 from ..analysis.graph_utils import check_connectivity
-
 ########################################################################################################
 #       Baue Struktur aus Knoten und Federn auf
 ########################################################################################################
@@ -157,38 +159,27 @@ class Structure:
         return nachbarn
 
     def entferne_tote_aeste(self):
-        """
-        Löscht REKURSIV alle Knoten, die weniger als 2 Nachbarn haben.
-        Macht solange weiter, bis das Gitter 'sauber' ist.
-        """
         while True:
             nodes_removed_in_pass = 0
 
-            # 1. Nachbarn zählen (frisch für diesen Durchlauf)
             neighbor_counts = {n.id: 0 for n in self.nodes}
             for el in self.elements:
                 if el.node_a.active and el.node_b.active:
                     neighbor_counts[el.node_a.id] += 1
                     neighbor_counts[el.node_b.id] += 1
 
-            # 2. Löschen
             for node in self.nodes:
                 if not node.active: continue
-                # Lager und Lasten schützen
                 if any(node.fixed) or (node.id in self.forces): continue
 
-                # Wenn < 2 Nachbarn -> Weg damit
                 if neighbor_counts[node.id] < 2:
                     node.active = False
                     nodes_removed_in_pass += 1
 
-            # Wenn in diesem Durchlauf nichts gelöscht wurde, sind wir fertig
             if nodes_removed_in_pass == 0:
                 break
 
     def fuelle_loecher(self):
-        """Reaktiviert Knoten, die von aktiven Knoten umzingelt sind."""
-        # Dies ist eine rein geometrische Operation
         for node in self.nodes:
             if node.active: continue
             if any(node.fixed) or (node.id in self.forces): continue
@@ -198,8 +189,6 @@ class Structure:
 
             aktive_nachbarn_count = sum(1 for nid in alle_nachbarn if self.nodes[nid].active)
 
-            # Gitter mit Diagonalen hat max 8 Nachbarn.
-            # Wenn >= 5 aktiv sind, ist es sehr wahrscheinlich ein ungewolltes Loch.
             if aktive_nachbarn_count >= 5:
                 node.active = True
 
@@ -285,3 +274,36 @@ class Structure:
             })
 
         return results
+
+    @staticmethod
+    def save_setup_to_db(name, width, height, supports, forces, active_nodes=None, db_filename='projects.json'):
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        db_path = os.path.join(base_dir, db_filename)
+
+        db = TinyDB(db_path)
+        Project = Query()
+
+        entry = {
+            'name': name,
+            'width': width,
+            'height': height,
+            'supports': supports,
+            'forces': forces,
+            'active_nodes': active_nodes,
+            'timestamp': str(np.datetime64('now'))
+        }
+
+        db.upsert(entry, Project.name == name)
+
+        return f"Projekt '{name}' gespeichert."
+
+    @staticmethod
+    def get_all_projects(db_filename='projects.json'):
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        db_path = os.path.join(base_dir, db_filename)
+
+        if not os.path.exists(db_path):
+            return []
+
+        db = TinyDB(db_path)
+        return db.all()
