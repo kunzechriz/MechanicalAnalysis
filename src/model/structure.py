@@ -12,17 +12,13 @@ class Structure:
         self.forces = {}
 
     def knoten_hinzufuegen(self, x: float, z: float, fixierte_dofs: List[bool] = None) -> Node:
-        node_id = len(self.nodes)
         if fixierte_dofs is None:
             fixierte_dofs = [False, False]
-
+        node_id = len(self.nodes)
         neuer_knoten = Node(node_id, [x, z])
         neuer_knoten.setze_randbedingung(fixierte_dofs)
-
-        n_dim = 2
-        start_index = node_id * n_dim
+        start_index = node_id * 2
         neuer_knoten.global_dof_indices = [start_index, start_index + 1]
-
         self.nodes.append(neuer_knoten)
         return neuer_knoten
 
@@ -66,19 +62,15 @@ class Structure:
 
         return f_global
 
-    def loese_system(self) -> np.ndarray:
-        K = self.erstelle_globale_steifigkeitsmatrix()
-        F = self.erstelle_kraftvektor()
-
+    def _apply_boundary_conditions(self, K: np.ndarray, F: np.ndarray = None):
         for node in self.nodes:
             dofs = node.global_dof_indices
-
             if not node.active:
                 for idx in dofs:
                     K[idx, :] = 0.0
                     K[:, idx] = 0.0
                     K[idx, idx] = 1.0
-                    F[idx] = 0.0
+                    if F is not None: F[idx] = 0.0
                 continue
 
             for i, is_fixed in enumerate(node.fixed):
@@ -87,7 +79,12 @@ class Structure:
                     K[idx, :] = 0.0
                     K[:, idx] = 0.0
                     K[idx, idx] = 1.0
-                    F[idx] = 0.0
+                    if F is not None: F[idx] = 0.0
+
+    def loese_system(self) -> np.ndarray:
+        K = self.erstelle_globale_steifigkeitsmatrix()
+        F = self.erstelle_kraftvektor()
+        self._apply_boundary_conditions(K, F)
 
         try:
             u = np.linalg.solve(K, F)
@@ -122,7 +119,17 @@ class Structure:
                 adj[el.node_a.id].append(el.node_b.id)
                 adj[el.node_b.id].append(el.node_a.id)
 
-        return check_connectivity(active_nodes, fixed_nodes, adj)
+        if not check_connectivity(active_nodes, fixed_nodes, adj):
+            return False
+
+        try:
+            K = self.erstelle_globale_steifigkeitsmatrix()
+            self._apply_boundary_conditions(K)
+            dummy_f = np.ones(K.shape[0])
+            np.linalg.solve(K, dummy_f)
+            return True
+        except np.linalg.LinAlgError:
+            return False
 
     def speichere_verschiebungen(self, u: np.ndarray):
         if u is None:
@@ -132,21 +139,11 @@ class Structure:
             uz = u[node.global_dof_indices[1]]
             node.displacements = np.array([ux, uz])
 
-    def hole_nachbar_indizes(self, node_id: int) -> List[int]:
+    def hole_nachbarn(self, node_id: int, nur_aktiv: bool = False) -> List[int]:
         nachbarn = []
         for el in self.elements:
-            if not (el.node_a.active and el.node_b.active):
+            if nur_aktiv and not (el.node_a.active and el.node_b.active):
                 continue
-
-            if el.node_a.id == node_id:
-                nachbarn.append(el.node_b.id)
-            elif el.node_b.id == node_id:
-                nachbarn.append(el.node_a.id)
-        return nachbarn
-
-    def hole_alle_nachbar_indizes(self, node_id: int) -> List[int]:
-        nachbarn = []
-        for el in self.elements:
             if el.node_a.id == node_id:
                 nachbarn.append(el.node_b.id)
             elif el.node_b.id == node_id:
@@ -154,49 +151,32 @@ class Structure:
         return nachbarn
 
     def entferne_tote_aeste(self):
-        """
-        Löscht REKURSIV alle Knoten, die weniger als 2 Nachbarn haben.
-        Macht solange weiter, bis das Gitter 'sauber' ist.
-        """
         while True:
             nodes_removed_in_pass = 0
-
-            # 1. Nachbarn zählen (frisch für diesen Durchlauf)
             neighbor_counts = {n.id: 0 for n in self.nodes}
             for el in self.elements:
                 if el.node_a.active and el.node_b.active:
                     neighbor_counts[el.node_a.id] += 1
                     neighbor_counts[el.node_b.id] += 1
 
-            # 2. Löschen
             for node in self.nodes:
                 if not node.active: continue
-                # Lager und Lasten schützen
                 if any(node.fixed) or (node.id in self.forces): continue
-
-                # Wenn < 2 Nachbarn -> Weg damit
                 if neighbor_counts[node.id] < 2:
                     node.active = False
                     nodes_removed_in_pass += 1
-
-            # Wenn in diesem Durchlauf nichts gelöscht wurde, sind wir fertig
             if nodes_removed_in_pass == 0:
                 break
 
     def fuelle_loecher(self):
-        """Reaktiviert Knoten, die von aktiven Knoten umzingelt sind."""
-        # Dies ist eine rein geometrische Operation
         for node in self.nodes:
             if node.active: continue
             if any(node.fixed) or (node.id in self.forces): continue
 
-            alle_nachbarn = self.hole_alle_nachbar_indizes(node.id)
+            alle_nachbarn = self.hole_nachbarn(node.id, nur_aktiv=False)
             if not alle_nachbarn: continue
 
             aktive_nachbarn_count = sum(1 for nid in alle_nachbarn if self.nodes[nid].active)
-
-            # Gitter mit Diagonalen hat max 8 Nachbarn.
-            # Wenn >= 5 aktiv sind, ist es sehr wahrscheinlich ein ungewolltes Loch.
             if aktive_nachbarn_count >= 5:
                 node.active = True
 
