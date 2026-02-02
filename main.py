@@ -127,7 +127,6 @@ def analyze_kinematics():
         supports = data.get('supports', {})
         forces = data.get('forces', {})
 
-
         active_indices = data.get('active_nodes', None)
 
         s = Structure.create_grid(width, height)
@@ -166,6 +165,8 @@ def analyze_kinematics():
         if u is None:
             return jsonify({"status": "error", "message": "Struktur instabil (System singulär)"})
 
+        stabkraefte = s.berechne_stabkraefte(u)
+
         nodes_data = []
         max_disp = 0.0
 
@@ -192,13 +193,13 @@ def analyze_kinematics():
         return jsonify({
             "status": "done",
             "max_disp": max_disp,
-            "nodes": nodes_data
+            "nodes": nodes_data,
+            "elements": stabkraefte
         })
 
     except Exception as e:
         print(f"ERROR in analyze: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
