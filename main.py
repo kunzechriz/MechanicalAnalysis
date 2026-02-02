@@ -4,7 +4,7 @@ import sys
 from src.model.structure import Structure
 from src.analysis.optimizer import run_optimization
 
-#initialize (flask) server
+#initialize (flask)-server
 app = Flask(__name__)
 @app.route('/')
 def index():
