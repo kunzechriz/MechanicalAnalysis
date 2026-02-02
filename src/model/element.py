@@ -24,10 +24,6 @@ class Element(ABC):
     def berechne_verformungsenergie(self, u_global: np.ndarray) -> float:
         pass
 
-    @abstractmethod
-    def berechne_kraft(self, u_global: np.ndarray) -> float:
-        pass
-
 class Spring2D(Element):
     def _berechne_richtungsvektor(self) -> np.ndarray:
         """
@@ -69,16 +65,3 @@ class Spring2D(Element):
         u_element = u_global[indizes]
         K_o = self.berechne_transformierte_steifigkeitsmatrix()
         return 0.5 * np.dot(u_element.T, np.dot(K_o, u_element))
-
-    def berechne_kraft(self, u_global: np.ndarray) -> float:
-        """
-        Berechnet die Axialkraft im Stab.
-        Positiv = Zug, Negativ = Druck.
-        F = k * (u_b - u_a) * n
-        """
-        indizes_a = self.node_a.global_dof_indices
-        indizes_b = self.node_b.global_dof_indices
-        u_a = u_global[indizes_a]
-        u_b = u_global[indizes_b]
-        e_n = self._berechne_richtungsvektor()
-        return self.k * np.dot((u_b - u_a), e_n)
