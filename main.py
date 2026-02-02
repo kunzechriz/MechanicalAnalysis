@@ -167,8 +167,6 @@ def analyze_kinematics():
         if u is None:
             return jsonify({"status": "error", "message": "Struktur instabil (System singulär)"})
 
-        stabkraefte = s.berechne_stabkraefte(u)
-
         nodes_data = []
         max_disp = 0.0
 
@@ -195,8 +193,7 @@ def analyze_kinematics():
         return jsonify({
             "status": "done",
             "max_disp": max_disp,
-            "nodes": nodes_data,
-            "elements": stabkraefte
+            "nodes": nodes_data
         })
 
     except Exception as e:
