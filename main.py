@@ -181,6 +181,38 @@ def analyze_kinematics():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+########################################################################################################
+#       Speicher- und Ladelogik für UI
+########################################################################################################
+@app.route('/api/save', methods=['POST'])
+def save_project():
+    try:
+        data = request.json
+        name = data.get('name')
+        if not name:
+            return jsonify({"status": "error", "message": "Kein Name angegeben"}), 400
 
+        Structure.save_setup_to_db(
+            name=name,
+            width=data.get('width'),
+            height=data.get('height'),
+            supports=data.get('supports'),
+            forces=data.get('forces'),
+            active_nodes=data.get('active_nodes')
+        )
+
+        return jsonify({"status": "success", "message": f"Projekt '{name}' gespeichert."})
+
+    except Exception as e:
+        print(f"SAVE ERROR: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/projects', methods=['GET'])
+def get_projects():
+    try:
+        projects = Structure.get_all_projects()
+        return jsonify({"status": "success", "projects": projects})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

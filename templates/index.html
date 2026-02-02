@@ -21,20 +21,35 @@
     </header>
 
     <div id="dashboard-view" class="dashboard-grid">
-        <div class="glass-card clickable" onclick="switchView('static-analysis')">
+        <div class="glass-card clickable" onclick="startNewProject()">
             <div class="icon-title">
-                <div class="card-icon">📊</div>
-                <h3>Statische Analyse</h3>
+                <div class="card-icon">＋</div>
+                <h3>Neues Projekt</h3>
             </div>
-            <p>Topologieoptimierung und statische Analyse</p>
+            <p>Starte mit leeren Struktur.</p>
         </div>
 
+        <div id="btn-open-project" class="glass-card clickable" onclick="loadAndShowProjects()">
+            <div class="icon-title">
+                <div class="card-icon">📂</div>
+                <h3>Öffne gespeicherte Projekt</h3>
+            </div>
+        </div>
+        <div id="saved-projects-wrapper" class="glass-card"
+             style="margin-top: 20px; display: none; transition: all 0.3s ease;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px;">
+                <h3 style="margin:0;">Gespeicherte Projekte:</h3>
+                <button class="glass-btn-small danger" onclick="hideProjectList()">Schließen ✕</button>
+            </div>
+
+            <div id="project-list" style="display: flex; flex-wrap: wrap; gap: 15px;"></div>
+        </div>
         <div class="glass-card clickable" id="upload-widget">
             <div class="icon-title">
                 <div class="card-icon">📁</div>
                 <h3>Upload Object</h3>
             </div>
-            <p>Importieren von Geometrien via Bild oder Koordinatenliste.</p>
+            <p>Importieren von Geometrien.</p>
         </div>
     </div>
 
@@ -49,7 +64,7 @@
                 <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.1); margin-bottom: 20px;">
 
                 <div class="control-group">
-                    <label>Breite: <span id="val-width">41</span></label>
+                    <label>Breite: <span id="val-width">40</span></label>
                     <input type="range" id="slider-width" min="5" max="100" value="40" class="styled-slider">
                 </div>
 
@@ -59,10 +74,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Geschwindikeit :</label>
-                    <small style="display: block; font-size: 0.75em; opacity: 0.7; margin-bottom: 5px;">
-                        (hat Auswirkung auf Qualität)
-                    </small>
+                    <label>Geschwindigkeit:</label>
                     <select id="select-quality" class="glass-select" style="width: 100%; margin-top: 5px;">
                         <option value="0.02">Schnell</option>
                         <option value="0.01" selected>Ausgewogen</option>
@@ -70,15 +82,9 @@
                     </select>
                 </div>
 
-                <button class="glass-btn action-btn" onclick="triggerPythonSolver()">Berechnung starten</button>
-                <button class="glass-btn action-btn" style="margin-top: 10px; background: rgba(59, 130, 246, 0.2);"
-                        onclick="triggerKinematicAnalysis()">
-                    Verformung zeigen
-                </button>
-                <button class="glass-btn action-btn" style="margin-top: 10px; background: rgba(245, 158, 11, 0.2);"
-                        onclick="triggerForceAnalysis()">
-                    Kraftanalyse
-                </button>
+                <button class="glass-btn action-btn" onclick="triggerPythonSolver()">Gewichtsoptimierung starten</button>
+                <button class="glass-btn action-btn" onclick="triggerKinematicAnalysis()">Verformung zeigen</button>
+                <button class="glass-btn action-btn" onclick="triggerForceAnalysis()">Kraftanalyse</button>
             </div>
 
             <div class="canvas-wrapper" style="flex-grow: 1; position: relative;">
@@ -112,7 +118,25 @@
                 </div>
 
                 <canvas id="structureCanvas" width="800" height="400"
-                        style="background: rgba(255,255,255,0.5); border-radius: 15px; cursor: crosshair;"></canvas>
+                        style="background: rgba(255,255,255,0.5); border-radius: 15px; cursor: crosshair; display: block;"></canvas>
+
+                <div id="save-container" class="glass-card"
+                     style="position: absolute; bottom: 20px; right: 20px; padding: 8px; z-index: 100; transition: all 0.3s ease;">
+
+                    <div id="save-initial" style="display: block;">
+                        <button class="glass-btn-small" onclick="toggleSaveUI(true)" style="background: rgba(16, 185, 129, 0.2);">
+                            💾 Speichern
+                        </button>
+                    </div>
+
+                    <div id="save-form" style="display: none; align-items: center; gap: 5px;">
+                        <input type="text" id="project-name" placeholder="Name..."
+                               style="background: rgba(255,255,255,0.8); border: 1px solid #ccc; padding: 5px; border-radius: 5px; width: 120px;">
+
+                        <button class="glass-btn-small" onclick="triggerSaveProject()" style="background: rgba(16, 185, 129, 0.6); color: white;">✓</button>
+                        <button class="glass-btn-small danger" onclick="toggleSaveUI(false)" style="padding: 5px 8px;">✕</button>
+                    </div>
+                </div>
 
                 <div class="terminal-window">
                     <div class="terminal-header">
