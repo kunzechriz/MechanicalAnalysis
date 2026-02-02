@@ -107,6 +107,19 @@ class Structure:
                 energien[element.node_b.id] += e_val / 2.0
         return energien
 
+    def berechne_stabkraefte(self, u_global: np.ndarray):
+        kraefte = []
+        for element in self.elements:
+            if element.node_a.active and element.node_b.active:
+                kraft = element.berechne_kraft(u_global)
+                # Wir speichern: [NodeA_ID, NodeB_ID, Kraft]
+                kraefte.append({
+                    "a": element.node_a.id,
+                    "b": element.node_b.id,
+                    "force": kraft
+                })
+        return kraefte
+
     def check_stability(self) -> bool:
         active_nodes = [n for n in self.nodes if n.active]
         if not active_nodes:
