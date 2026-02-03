@@ -409,7 +409,7 @@ async function triggerPythonSolver() {
 function toggleModeUI() {
     const selectMode = document.getElementById('select-mode');
     const mode = selectMode.value;
-
+    const qualitySelect = document.getElementById('select-quality');
     const depthGroup = document.getElementById('group-depth');
     const analysisWrapper = document.getElementById('analysis-buttons-wrapper');
     const canvas2D = document.getElementById('structureCanvas');
@@ -422,7 +422,7 @@ function toggleModeUI() {
 
         depthGroup.style.display = 'block';
         if(analysisWrapper) analysisWrapper.style.display = 'none';
-
+        qualitySelect.value = "0.02";
         canvas2D.style.display = 'none';
         container3D.style.display = 'block';
 
@@ -433,7 +433,7 @@ function toggleModeUI() {
         // 2D AKTIVIEREN
         gridState.mode = '2d';
         gridState.nodesZ = 1;
-
+        qualitySelect.value = "0.01";
         depthGroup.style.display = 'none';
         if(analysisWrapper) analysisWrapper.style.display = 'block';
 
