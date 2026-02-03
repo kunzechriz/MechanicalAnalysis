@@ -319,7 +319,6 @@ async function triggerPythonSolver() {
 
     term.innerHTML = "<div style='opacity:0.6'>System initialized. Stream started...</div>";
     statusDot.classList.add('active');
-
     const logInterval = setInterval(async () => {
         try {
             const res = await fetch('/api/logs');
@@ -339,6 +338,15 @@ async function triggerPythonSolver() {
     const currentForce = parseFloat(sliderForce.value);
     const qualityRate = parseFloat(document.getElementById('select-quality').value);
 
+    let activeIndices = null;
+    if (isShowingResult && lastOptimizedNodes && lastOptimizedNodes.length > 0) {
+        activeIndices = [];
+        lastOptimizedNodes.forEach(n => {
+            if (n.active) activeIndices.push(n.id);
+        });
+        term.innerHTML += `<div style='color:#007aff'>Starte Optimierung auf bestehender Struktur (${activeIndices.length} Knoten)...</div>`;
+    }
+
     const payload = {
         width: gridState.nodesX,
         height: gridState.nodesY,
@@ -347,6 +355,7 @@ async function triggerPythonSolver() {
         mass_ratio: parseInt(sliderMass.value) / 100,
         supports: gridState.supports,
         removal_rate: qualityRate,
+        active_nodes: activeIndices,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
             acc[key] = { fy: currentForce };
             return acc;
@@ -802,7 +811,7 @@ async function triggerForceAnalysis() {
         const result = await response.json();
 
         if (result.status === 'done') {
-            term.innerHTML += `<br><div style='color:#f59e0b;'>Kraftanalyse berechnet.</div>`;
+            term.innerHTML += `<br><div style='color:#f59e0b;'>Kraftanalyse berechnet. Rot Druck & Blau Zug</div>`;
             renderForceHeatmap(result.nodes, result.elements);
         }
     } catch (e) {

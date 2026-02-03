@@ -59,16 +59,22 @@ def optimize():
         forces = data.get('forces', {})
         removal_rate = data.get('removal_rate', 0.01)
 
+        active_indices = data.get('active_nodes', None)
+
         if mode == '3d':
             print(f"--> Starte 3D Modus: {width}x{height}x{depth}")
             s = Structure3D.create_grid(width, height, depth)
-
-            #zwingt Lager & Kräfte zu verbinden
             set_force_templates_3d(s, forces, width, height, depth)
         else:
             print(f"--> Starte 2D Modus: {width}x{height}")
             s = Structure2D.create_grid(width, height)
 
+        if active_indices is not None:
+            print(f"--> Übernehme existierende Topologie ({len(active_indices)} Knoten)")
+            active_set = set(active_indices)
+            for n in s.nodes:
+                if n.id not in active_set:
+                    n.active = False
 
         for key, type in supports.items():
             parts = list(map(int, key.split(',')))
@@ -104,7 +110,6 @@ def optimize():
                 node_id = z * width + x
                 if node_id < len(s.nodes):
                     s.last_aufbringen(node_id, 0, fy)
-
         def generate():
             gen = run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=removal_rate)
             for step_struct, is_done, msg in gen:
@@ -127,7 +132,6 @@ def optimize():
     except Exception as e:
         print(f"CRITICAL ERROR: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 ########################################################################################################
 #       Verformungsanalyse verbinden mit UI
 ########################################################################################################
