@@ -236,4 +236,4 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
     structure.entferne_tote_aeste()
 
     final_count = len([n for n in structure.nodes if n.active])
-    yield structure, True, f"Fertig. Endstand: {final_count} / {target_count} Knoten"
+    yield structure, True, f"Fertig"
