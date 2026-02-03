@@ -109,13 +109,11 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
     while True:
         current_active = [n for n in structure.nodes if n.active]
         current_count = len(current_active)
-
-        #yield für Zwischenstand der Optimierung (an UI senden)
-        yield structure, False, f"Iteration {iteration}: {current_count} Nodes"
+        yield structure, False, f"Iteration {iteration}: {current_count} / {target_count} Nodes"
         time.sleep(0.05)
 
         if current_count <= target_count:
-            yield structure, True, f"ZIEL ERREICHT: {current_count} Knoten."
+            yield structure, False, f"ZIEL ERREICHT ({current_count}). Starte Nachbearbeitung..."
             break
 
         if current_count in count_history[-4:]:
@@ -128,7 +126,7 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
         if len(count_history) > 10: count_history.pop(0)
 
         if stagnation_counter >= 10:
-            yield structure, True, "ABBRUCH: Stagnation"
+            yield structure, False, "ABBRUCH: Stagnation. Starte Nachbearbeitung..."
             break
 
         last_count = current_count
@@ -139,7 +137,7 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
         u = structure.loese_system()
         if u is None:
             yield structure, True, "Abbruch: Instabil"
-            break
+            return
 
         raw_energies = structure.berechne_knoten_energien(u)
 
@@ -237,4 +235,5 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
     structure.fuelle_loecher()
     structure.entferne_tote_aeste()
 
-    yield structure, True, "Optimierung beendet."
+    final_count = len([n for n in structure.nodes if n.active])
+    yield structure, True, f"Fertig. Endstand: {final_count} / {target_count} Knoten"

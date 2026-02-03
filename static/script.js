@@ -238,15 +238,32 @@ function switchView(viewName) {
         staticView.style.display = 'none';
     }
 }
-
 async function triggerPythonSolver() {
     const term = document.getElementById('terminal-content');
     const statusDot = document.getElementById('status-dot');
-    term.innerHTML = "<div style='opacity:0.6'>System initialized. Stream started...</div><br>";
+
+    term.innerHTML = "<div style='opacity:0.6'>System initialized. Stream started...</div>";
     statusDot.classList.add('active');
+
+    const logInterval = setInterval(async () => {
+        try {
+            const res = await fetch('/api/logs');
+            if(res.ok) {
+                const data = await res.json();
+                if (data.logs && data.logs.trim() !== "") {
+                    const lines = data.logs.split('\n');
+                    lines.forEach(line => {
+                        if(line) term.innerHTML += `<div>${line}</div>`;
+                    });
+                    term.scrollTop = term.scrollHeight;
+                }
+            }
+        } catch(e) { }
+    }, 500);
 
     const currentForce = parseFloat(sliderForce.value);
     const qualityRate = parseFloat(document.getElementById('select-quality').value);
+
     const payload = {
         width: gridState.nodesX,
         height: gridState.nodesY,
@@ -279,6 +296,7 @@ async function triggerPythonSolver() {
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
             let parts = buffer.split("\n");
+
             buffer = parts.pop();
 
             for (let part of parts) {
@@ -286,14 +304,20 @@ async function triggerPythonSolver() {
                 try {
                     const result = JSON.parse(part);
 
+
+                    if (result.message) {
+
+                        term.innerHTML += `<div>${result.message}</div>`;
+                        term.scrollTop = term.scrollHeight;
+                    }
+
                     if (result.nodes) {
                         isShowingResult = true;
                         lastOptimizedNodes = result.nodes;
                         renderOptimizedStructure(result.nodes);
                     }
+
                     if (result.status === "finished") {
-                        term.innerHTML += `<div style='color:#007aff;'>✓ ${result.message}</div>`;
-                        term.scrollTop = term.scrollHeight;
                         statusDot.classList.remove('active');
                     }
                 } catch (e) {}
@@ -302,9 +326,10 @@ async function triggerPythonSolver() {
     } catch (err) {
         term.innerHTML += `<br><div style='color:#ef4444;'>⚠ ERROR: ${err.message}</div>`;
         statusDot.classList.remove('active');
+    } finally {
+        clearInterval(logInterval);
     }
 }
-
 //-----------------------------------------------------------------------------------------------
 // Verbinde Verformungsanalyse mit Backend
 //-----------------------------------------------------------------------------------------------
