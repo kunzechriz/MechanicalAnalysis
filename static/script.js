@@ -8,15 +8,24 @@ const sliderW = document.getElementById('slider-width');
 const sliderH = document.getElementById('slider-height');
 const sliderMass = document.getElementById('slider-mass');
 const sliderForce = document.getElementById('slider-force');
+const sliderDepth = document.getElementById('slider-depth'); // Define globally
 
 let gridState = {
     supports: {},
     forces: {},
     nodesX: 40,
-    nodesY: 10
+    nodesY: 10,
+    nodesZ: 1,
+    mode: '2d'
 };
 
 let isShowingResult = false;
+
+sliderDepth.addEventListener('input', (e) => {
+    document.getElementById('val-depth').innerText = e.target.value;
+    gridState.nodesZ = parseInt(e.target.value);
+    if(gridState.mode === '3d') setBaseCase();
+});
 
 sliderW.addEventListener('input', (e) => {
     document.getElementById('val-width').innerText = e.target.value;
@@ -39,25 +48,69 @@ canvas.addEventListener('mousedown', (e) => {
 
 function setBaseCase() {
     isShowingResult = false;
+    lastOptimizedNodes = null;
+
     const term = document.getElementById('terminal-content');
     const statusDot = document.getElementById('status-dot');
-    term.innerHTML = "System reset. Base case applied.";
-    statusDot.classList.remove('active');
+
+    if(term) term.innerHTML = "System reset. Base case applied.";
+    if(statusDot) statusDot.classList.remove('active');
+
     gridState.nodesX = parseInt(sliderW.value);
     gridState.nodesY = parseInt(sliderH.value);
+    gridState.nodesZ = (gridState.mode === '3d') ? parseInt(sliderDepth.value) : 1;
+
     gridState.supports = {};
     gridState.forces = {};
+
     const leftBottom = `0,${gridState.nodesY - 1}`;
     gridState.supports[leftBottom] = "roller";
     const rightBottom = `${gridState.nodesX - 1},${gridState.nodesY - 1}`;
     gridState.supports[rightBottom] = "fixed";
+
     const topMiddleX = Math.floor(gridState.nodesX / 2);
     const topMiddle = `${topMiddleX},0`;
     gridState.forces[topMiddle] = { fy: 1000 };
-    updateCanvas();
+
+    if (gridState.mode === '3d') {
+        if (!renderer3D) initThreeJS();
+
+        document.getElementById('structureCanvas').style.display = 'none';
+        document.getElementById('three-container').style.display = 'block';
+
+        const baseNodes = generateBase3DNodes();
+        renderThreeJSScene(baseNodes);
+    } else {
+        document.getElementById('three-container').style.display = 'none';
+        document.getElementById('structureCanvas').style.display = 'block';
+        updateCanvas();
+    }
+}
+
+function generateBase3DNodes() {
+    const nodes = [];
+    const w = gridState.nodesX;
+    const h = gridState.nodesY;
+    const d = gridState.nodesZ;
+
+    for(let y = 0; y < d; y++) {
+        for(let z = 0; z < h; z++) {
+            for(let x = 0; x < w; x++) {
+                nodes.push({
+                    x: x,
+                    z: z,
+                    y: y,
+                    active: true
+                });
+            }
+        }
+    }
+    return nodes;
 }
 
 function handleCanvasClick(e) {
+    if (gridState.mode === '3d') return;
+
     const rect = canvas.getBoundingClientRect();
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     const mouseX = e.clientX - rect.left;
@@ -139,10 +192,31 @@ function updateCanvas() {
         }
     }
 }
+
 //-----------------------------------------------------------------------------------------------
 // Verbinde Frontend Struktur mit Backend Optimierung
 //-----------------------------------------------------------------------------------------------
 function renderOptimizedStructure(nodes) {
+    lastOptimizedNodes = nodes;
+
+    if (gridState.mode === '3d') {
+        // 3D Rendering
+        document.getElementById('structureCanvas').style.display = 'none';
+        document.getElementById('three-container').style.display = 'block';
+
+        if (!renderer3D) initThreeJS();
+        renderThreeJSScene(nodes);
+    } else {
+        // 2D Rendering
+        document.getElementById('three-container').style.display = 'none';
+        document.getElementById('structureCanvas').style.display = 'block';
+
+        render2DCanvas(nodes);
+    }
+}
+
+// 2D Render Helper
+function render2DCanvas(nodes) {
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const activeMap = new Set();
@@ -169,7 +243,7 @@ function renderOptimizedStructure(nodes) {
                 }
             }
             if (x < gridState.nodesX - 1 && y < gridState.nodesY - 1) {
-                if (activeMap.has(`${x},${y}`) && activeMap.has(`${x+1},${y+1}`)) {
+                 if (activeMap.has(`${x},${y}`) && activeMap.has(`${x+1},${y+1}`)) {
                     ctx.moveTo(posX, posY);
                     ctx.lineTo(posX + spacing, posY + spacing);
                 }
@@ -238,6 +312,7 @@ function switchView(viewName) {
         staticView.style.display = 'none';
     }
 }
+
 async function triggerPythonSolver() {
     const term = document.getElementById('terminal-content');
     const statusDot = document.getElementById('status-dot');
@@ -267,6 +342,8 @@ async function triggerPythonSolver() {
     const payload = {
         width: gridState.nodesX,
         height: gridState.nodesY,
+        depth: gridState.nodesZ,
+        mode: gridState.mode,
         mass_ratio: parseInt(sliderMass.value) / 100,
         supports: gridState.supports,
         removal_rate: qualityRate,
@@ -296,7 +373,6 @@ async function triggerPythonSolver() {
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
             let parts = buffer.split("\n");
-
             buffer = parts.pop();
 
             for (let part of parts) {
@@ -304,9 +380,7 @@ async function triggerPythonSolver() {
                 try {
                     const result = JSON.parse(part);
 
-
                     if (result.message) {
-
                         term.innerHTML += `<div>${result.message}</div>`;
                         term.scrollTop = term.scrollHeight;
                     }
@@ -330,38 +404,240 @@ async function triggerPythonSolver() {
         clearInterval(logInterval);
     }
 }
+
+// 2D 3D Ansicht switchen
+function toggleModeUI() {
+    const selectMode = document.getElementById('select-mode');
+    const mode = selectMode.value;
+
+    const depthGroup = document.getElementById('group-depth');
+    const analysisWrapper = document.getElementById('analysis-buttons-wrapper');
+    const canvas2D = document.getElementById('structureCanvas');
+    const container3D = document.getElementById('three-container');
+
+    if (mode === '3d') {
+        // 3D AKTIVIEREN
+        gridState.mode = '3d';
+        gridState.nodesZ = parseInt(document.getElementById('slider-depth').value);
+
+        depthGroup.style.display = 'block';
+        if(analysisWrapper) analysisWrapper.style.display = 'none';
+
+        canvas2D.style.display = 'none';
+        container3D.style.display = 'block';
+
+        document.getElementById('terminal-content').innerHTML =
+            "<div style='color:#007aff'>3D Modus. (Nur Topologieoptimierung möglich)</div>";
+
+    } else {
+        // 2D AKTIVIEREN
+        gridState.mode = '2d';
+        gridState.nodesZ = 1;
+
+        depthGroup.style.display = 'none';
+        if(analysisWrapper) analysisWrapper.style.display = 'block';
+
+        canvas2D.style.display = 'block';
+        container3D.style.display = 'none';
+    }
+    setBaseCase();
+}
+
 //-----------------------------------------------------------------------------------------------
-// Verbinde Verformungsanalyse mit Backend
+// Threejs Logik (Erweitert für High-Quality Rendering)
+//-----------------------------------------------------------------------------------------------
+let renderer3D, scene3D, camera3D, controls3D;
+let threeObjects = {
+    nodes: null,
+    lines: null,
+    supports: [],
+    forces: []
+};
+
+function initThreeJS() {
+    const container = document.getElementById('three-container');
+
+    if (!renderer3D) {
+        const width = container.clientWidth || 800;
+        const height = container.clientHeight || 400;
+
+        scene3D = new THREE.Scene();
+        scene3D.background = new THREE.Color(0xffffff);
+
+        camera3D = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+        camera3D.position.set(40, 40, 60);
+
+        renderer3D = new THREE.WebGLRenderer({ antialias: true });
+        renderer3D.setSize(width, height);
+        renderer3D.setPixelRatio(window.devicePixelRatio);
+
+        container.appendChild(renderer3D.domElement);
+
+        controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+        controls3D.enableDamping = true;
+
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+        scene3D.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(10, 20, 10);
+        scene3D.add(dirLight);
+    }
+}
+
+function renderThreeJSScene(nodes) {
+    if (!scene3D) return;
+
+    if (threeObjects.nodes) scene3D.remove(threeObjects.nodes);
+    if (threeObjects.lines) scene3D.remove(threeObjects.lines);
+    threeObjects.supports.forEach(o => scene3D.remove(o));
+    threeObjects.forces.forEach(o => scene3D.remove(o));
+    threeObjects.supports = [];
+    threeObjects.forces = [];
+
+    const activeNodes = nodes.filter(n => n.active !== false);
+    if (activeNodes.length === 0) return;
+
+    const offsetX = gridState.nodesX / 2;
+    const offsetZ = gridState.nodesY / 2;
+    const depth = gridState.nodesZ;
+    const offsetY_Depth = depth / 2;
+
+    const sphereGeo = new THREE.SphereGeometry(0.3, 16, 16);
+    const sphereMat = new THREE.MeshPhongMaterial({ color: 0x3b82f6 });
+    const nodeMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, activeNodes.length);
+    const dummy = new THREE.Object3D();
+    const activeCoords = new Set();
+
+    activeNodes.forEach((n, i) => {
+        const posX = n.x - offsetX;
+        const posY = -(n.z - offsetZ);
+        const posZ = (n.y || 0) - offsetY_Depth;
+
+        dummy.position.set(posX, posY, posZ);
+        dummy.updateMatrix();
+        nodeMesh.setMatrixAt(i, dummy.matrix);
+        activeCoords.add(`${n.x},${n.z},${n.y || 0}`);
+    });
+
+    nodeMesh.instanceMatrix.needsUpdate = true;
+    scene3D.add(nodeMesh);
+    threeObjects.nodes = nodeMesh;
+
+    const linePoints = [];
+    function checkAndAddLine(n, dx, dz, dy) {
+        const nx = n.x + dx;
+        const nz = n.z + dz;
+        const ny = (n.y || 0) + dy;
+        if (activeCoords.has(`${nx},${nz},${ny}`)) {
+            linePoints.push(n.x - offsetX, -(n.z - offsetZ), (n.y || 0) - offsetY_Depth);
+            linePoints.push(nx - offsetX, -(nz - offsetZ), ny - offsetY_Depth);
+        }
+    }
+    activeNodes.forEach(n => {
+        checkAndAddLine(n, 1, 0, 0);
+        checkAndAddLine(n, 0, 1, 0);
+        checkAndAddLine(n, 0, 0, 1);
+        checkAndAddLine(n, 1, 1, 0);
+        checkAndAddLine(n, 1, -1, 0);
+    });
+
+    if (linePoints.length > 0) {
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePoints, 3));
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.4 });
+        const lineSegments = new THREE.LineSegments(lineGeo, lineMat);
+        scene3D.add(lineSegments);
+        threeObjects.lines = lineSegments;
+    }
+
+    for (const [key, type] of Object.entries(gridState.supports)) {
+        const [gx, gz] = key.split(',').map(Number);
+
+        for (let y = 0; y < depth; y++) {
+            const px = gx - offsetX;
+            const py = -(gz - offsetZ);
+            const pz = y - offsetY_Depth;
+
+            const boxGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const boxMat = new THREE.MeshLambertMaterial({ color: 0xef4444 });
+            const supportMesh = new THREE.Mesh(boxGeo, boxMat);
+            supportMesh.position.set(px, py - 0.5, pz);
+
+            scene3D.add(supportMesh);
+            threeObjects.supports.push(supportMesh);
+        }
+    }
+
+    for (const [key, val] of Object.entries(gridState.forces)) {
+        const [gx, gz] = key.split(',').map(Number);
+
+        for (let y = 0; y < depth; y++) {
+            const px = gx - offsetX;
+            const py = -(gz - offsetZ);
+            const pz = y - offsetY_Depth;
+
+            const dir = new THREE.Vector3(0, -1, 0);
+            const origin = new THREE.Vector3(px, py + 2, pz);
+            const length = 2;
+            const hex = 0xf59e0b;
+
+            const arrowHelper = new THREE.ArrowHelper(dir, origin, length, hex, 0.5, 0.3);
+            scene3D.add(arrowHelper);
+            threeObjects.forces.push(arrowHelper);
+        }
+    }
+
+    if (!renderer3D.loopStarted) {
+        renderer3D.loopStarted = true;
+        animate3D();
+    }
+}
+
+function animate3D() {
+    requestAnimationFrame(animate3D);
+    if(controls3D) controls3D.update();
+    if(renderer3D && scene3D && camera3D) renderer3D.render(scene3D, camera3D);
+}
+
+//-----------------------------------------------------------------------------------------------
+// Analyse (Verformung / Kraft)
 //-----------------------------------------------------------------------------------------------
 let lastOptimizedNodes = null;
 let isShowingDeformation = false;
 
 async function triggerKinematicAnalysis() {
     const term = document.getElementById('terminal-content');
-    if (isShowingDeformation) {
-        isShowingDeformation = false;
-        if (isShowingResult && lastOptimizedNodes) {
-            renderOptimizedStructure(lastOptimizedNodes);
-        } else {
-            updateCanvas();
-        }
+
+    if (gridState.mode === '3d') {
+        term.innerHTML += "<div style='color:orange'>Verformungsanalyse nur in 2D verfügbar.</div>";
         return;
     }
+
+    if (isShowingDeformation) {
+        isShowingDeformation = false;
+        if (isShowingResult && lastOptimizedNodes) renderOptimizedStructure(lastOptimizedNodes);
+        else updateCanvas();
+        return;
+    }
+
     isShowingDeformation = true;
-    term.innerHTML = "<div style='opacity:0.6'>Calculating Deformation...</div>";
+    term.innerHTML = "<div style='opacity:0.6'>Berechne Verformung (2D)...</div>";
+
     const currentForce = parseFloat(document.getElementById('slider-force').value);
-    let activeIndices = [];
-    if (isShowingResult && lastOptimizedNodes) {
-        lastOptimizedNodes.forEach((n, index) => {
-            if (n.active) activeIndices.push(index);
-        });
-    } else {
-        activeIndices = null;
+
+    let activeIndices = null;
+
+    if (isShowingResult && lastOptimizedNodes && lastOptimizedNodes.length > 0) {
+        activeIndices = lastOptimizedNodes
+            .filter(n => n.active)
+            .map(n => n.id);
     }
 
     const payload = {
         width: gridState.nodesX,
         height: gridState.nodesY,
+        mode: '2d',
+        depth: 1,
         supports: gridState.supports,
         active_nodes: activeIndices,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
@@ -376,14 +652,19 @@ async function triggerKinematicAnalysis() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         });
+
         const result = await response.json();
+
         if (result.status === 'done') {
-            term.innerHTML += `<br><div style='color:#007aff;'>Fertig.</div>`;
+            term.innerHTML += `<br><div style='color:#007aff;'>Max. Verformung: ${result.max_disp.toFixed(4)}</div>`;
+            term.scrollTop = term.scrollHeight;
             renderDeformation(result.nodes, result.max_disp);
         } else {
+            term.innerHTML += `<br><div style='color:#ef4444;'>Fehler: ${result.message}</div>`;
             isShowingDeformation = false;
         }
     } catch (e) {
+        console.error(e);
         isShowingDeformation = false;
     }
 }
@@ -392,21 +673,27 @@ function renderDeformation(nodes, maxDisp) {
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const visualScale = (maxDisp > 0) ? (canvas.height * 0.15) / maxDisp : 0;
+
     function getHeatmapColor(value, max) {
         if (max === 0) return 'hsl(240, 100%, 50%)';
         let percent = value / max;
         let hue = 240 * (1 - percent);
         return `hsl(${hue}, 100%, 50%)`;
     }
+
+    const width = gridState.nodesX;
+
     const nodeMap = new Map();
     nodes.forEach(n => nodeMap.set(n.id, n));
-    const width = gridState.nodesX;
+
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 1;
     ctx.beginPath();
+
     nodes.forEach(n => {
         const drawX = offsetX + n.x * spacing + (n.ux * visualScale);
         const drawY = offsetY + n.z * spacing + (n.uz * visualScale);
+
         if (n.x < width - 1) {
             const rightId = n.id + 1;
             if (nodeMap.has(rightId)) {
@@ -447,6 +734,7 @@ function renderDeformation(nodes, maxDisp) {
         }
     });
     ctx.stroke();
+
     nodes.forEach(n => {
         const drawX = offsetX + n.x * spacing + (n.ux * visualScale);
         const drawY = offsetY + n.z * spacing + (n.uz * visualScale);
@@ -455,6 +743,7 @@ function renderDeformation(nodes, maxDisp) {
         ctx.arc(drawX, drawY, radius, 0, 2 * Math.PI);
         ctx.fillStyle = getHeatmapColor(n.disp, maxDisp);
         ctx.fill();
+
         const key = `${n.x},${n.z}`;
         if (gridState.supports[key]) drawSymbol(drawX, drawY, gridState.supports[key]);
         if (gridState.forces[key]) drawArrow(drawX, drawY);
@@ -462,36 +751,40 @@ function renderDeformation(nodes, maxDisp) {
 }
 
 //-----------------------------------------------------------------------------------------------
-// Verbinde Kraftanalyse mit Backend
+// Kraftanalyse
 //-----------------------------------------------------------------------------------------------
 let isShowingForces = false;
 async function triggerForceAnalysis() {
     const term = document.getElementById('terminal-content');
+
+    if (gridState.mode === '3d') {
+        term.innerHTML += "<div style='color:orange'>Kraftanalyse nur in 2D verfügbar.</div>";
+        return;
+    }
+
     if (isShowingForces) {
         isShowingForces = false;
-        term.innerHTML += "<div style='opacity:0.6'>Kraftanalyse ausgeblendet.</div>";
-        if (isShowingResult && lastOptimizedNodes) {
-            renderOptimizedStructure(lastOptimizedNodes);
-        } else {
-            updateCanvas();
-        }
+        term.innerHTML += "<div>Kraftanalyse beendet.</div>";
+        if (isShowingResult && lastOptimizedNodes) renderOptimizedStructure(lastOptimizedNodes);
+        else updateCanvas();
         return;
     }
     isShowingForces = true;
-    if (isShowingDeformation) isShowingDeformation = false;
-    term.innerHTML = "<div style='opacity:0.6'>Calculating Forces...</div>";
+    isShowingDeformation = false;
+
+    term.innerHTML = "<div style='opacity:0.6'>Berechne Kräfte...</div>";
     const currentForce = parseFloat(document.getElementById('slider-force').value);
-    let activeIndices = [];
-    if (isShowingResult && lastOptimizedNodes) {
-        lastOptimizedNodes.forEach((n, index) => {
-            if (n.active) activeIndices.push(index);
-        });
-    } else {
-        activeIndices = null;
+
+    let activeIndices = null;
+    if (isShowingResult && lastOptimizedNodes && lastOptimizedNodes.length > 0) {
+        activeIndices = lastOptimizedNodes.filter(n => n.active).map(n => n.id);
     }
+
     const payload = {
         width: gridState.nodesX,
         height: gridState.nodesY,
+        mode: '2d',
+        depth: 1,
         supports: gridState.supports,
         active_nodes: activeIndices,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
@@ -499,6 +792,7 @@ async function triggerForceAnalysis() {
             return acc;
         }, {})
     };
+
     try {
         const response = await fetch('/api/analyze', {
             method: 'POST',
@@ -506,13 +800,13 @@ async function triggerForceAnalysis() {
             body: JSON.stringify(payload)
         });
         const result = await response.json();
+
         if (result.status === 'done') {
             term.innerHTML += `<br><div style='color:#f59e0b;'>Kraftanalyse berechnet.</div>`;
             renderForceHeatmap(result.nodes, result.elements);
-        } else {
-            isShowingForces = false;
         }
     } catch (e) {
+        console.error(e);
         isShowingForces = false;
     }
 }
@@ -527,6 +821,7 @@ function renderForceHeatmap(nodes, elements) {
     if (maxForce === 0) maxForce = 1;
     const nodeMap = new Map();
     nodes.forEach(n => nodeMap.set(n.id, n));
+
     elements.forEach(el => {
         const nA = nodeMap.get(el.a);
         const nB = nodeMap.get(el.b);
@@ -556,6 +851,7 @@ function renderForceHeatmap(nodes, elements) {
         ctx.arc(posX, posY, 3, 0, 2 * Math.PI);
         ctx.fillStyle = '#3b82f6';
         ctx.fill();
+        // Symbole
         const key = `${n.x},${n.z}`;
         if (gridState.supports[key]) drawSymbol(posX, posY, gridState.supports[key]);
         if (gridState.forces[key]) drawArrow(posX, posY);
@@ -563,7 +859,7 @@ function renderForceHeatmap(nodes, elements) {
 }
 
 //-----------------------------------------------------------------------------------------------
-// Verbinde Speichern mit Backend
+// Saving & Export
 //-----------------------------------------------------------------------------------------------
 async function triggerSaveProject() {
     const nameInput = document.getElementById('project-name');
@@ -575,14 +871,11 @@ async function triggerSaveProject() {
         return;
     }
 
-    // NEU: Aktive Knoten ermitteln (falls Optimierung lief)
     let activeNodesList = null;
-    if (lastOptimizedNodes) {
+    if (isShowingResult && lastOptimizedNodes) {
         activeNodesList = [];
-        lastOptimizedNodes.forEach((node, index) => {
-            if (node.active) {
-                activeNodesList.push(index); // Index entspricht der ID
-            }
+        lastOptimizedNodes.forEach((node) => {
+            if (node.active) activeNodesList.push(node.id);
         });
     }
 
@@ -590,9 +883,11 @@ async function triggerSaveProject() {
         name: name,
         width: gridState.nodesX,
         height: gridState.nodesY,
+        mode: gridState.mode,
+        depth: gridState.nodesZ,
         supports: gridState.supports,
         forces: gridState.forces,
-        active_nodes: activeNodesList // Wird an das Backend gesendet (oder null)
+        active_nodes: activeNodesList
     };
 
     try {
@@ -630,88 +925,55 @@ function toggleSaveUI(showInput) {
         formDiv.style.display = 'none';
     }
 }
-async function loadProjectList() {
-    const listContainer = document.getElementById('project-list');
-    listContainer.innerHTML = "<p>Lade...</p>";
+
+function exportCanvasAsPNG() {
+    const originalCanvas = document.getElementById('structureCanvas');
+    const term = document.getElementById('terminal-content');
+
+    if(gridState.mode === '3d') {
+        if(!renderer3D) return;
+        const link = document.createElement('a');
+        link.download = 'Struktur3D.png';
+        renderer3D.render(scene3D, camera3D); // Force render
+        link.href = renderer3D.domElement.toDataURL("image/png");
+        link.click();
+        return;
+    }
 
     try {
-        const res = await fetch('/api/projects');
-        const data = await res.json();
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = originalCanvas.width;
+        tempCanvas.height = originalCanvas.height;
+        const tCtx = tempCanvas.getContext('2d');
 
-        if (data.status === 'success') {
-            listContainer.innerHTML = "";
-            if (data.projects.length === 0) {
-                listContainer.innerHTML = "<p>Keine gespeicherten Projekte.</p>";
-                return;
-            }
+        tCtx.fillStyle = "#ffffff";
+        tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        tCtx.drawImage(originalCanvas, 0, 0);
 
-            data.projects.forEach(proj => {
-                const card = document.createElement('div');
-                card.className = "glass-card clickable";
-                card.style.padding = "10px 15px";
-                card.style.minWidth = "150px";
-                card.innerHTML = `
-                    <strong>${proj.name}</strong><br>
-                    <small style='opacity:0.6'>${proj.width}x${proj.height}</small>
-                `;
-                card.onclick = () => restoreProject(proj);
-                listContainer.appendChild(card);
-            });
+        const nameInput = document.getElementById('project-name');
+        let filename = "Struktur";
+        if (nameInput && nameInput.value.trim() !== "") {
+            filename = nameInput.value.trim();
+        } else {
+            const now = new Date();
+            filename = `Struktur_${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
         }
+
+        const link = document.createElement('a');
+        link.download = `${filename}.png`;
+        link.href = tempCanvas.toDataURL("image/png");
+        link.click();
+
+        if (term) {
+            term.innerHTML += `<div style='color:#10b981; opacity:0.8;'>Bild gespeichert.</div>`;
+            term.scrollTop = term.scrollHeight;
+        }
+
     } catch (e) {
-        listContainer.innerHTML = "<p style='color:red'>Fehler beim Laden.</p>";
+        alert("Fehler beim Speichern.");
     }
 }
 
-function restoreProject(proj) {
-    switchView('static-analysis');
-
-    document.getElementById('slider-width').value = proj.width;
-    document.getElementById('slider-height').value = proj.height;
-    document.getElementById('val-width').innerText = proj.width;
-    document.getElementById('val-height').innerText = proj.height;
-
-    gridState.nodesX = proj.width;
-    gridState.nodesY = proj.height;
-    gridState.supports = proj.supports;
-    gridState.forces = proj.forces;
-
-    if (proj.active_nodes && proj.active_nodes.length > 0) {
-        isShowingResult = true;
-        lastOptimizedNodes = reconstructNodes(proj.width, proj.height, proj.active_nodes);
-        renderOptimizedStructure(lastOptimizedNodes);
-
-        document.getElementById('terminal-content').innerHTML = `Projekt '${proj.name}' (Optimiert) geladen.`;
-    } else {
-        // Nur Setup laden
-        isShowingResult = false;
-        lastOptimizedNodes = null;
-        updateCanvas();
-        document.getElementById('terminal-content').innerHTML = `Projekt-Setup '${proj.name}' geladen.`;
-    }
-}
-function reconstructNodes(w, h, activeIndices) {
-    const nodes = [];
-    const activeSet = new Set(activeIndices);
-
-    for (let z = 0; z < h; z++) {
-        for (let x = 0; x < w; x++) {
-            const id = z * w + x;
-            nodes.push({
-                id: id,
-                x: x,
-                z: z,
-                active: activeSet.has(id),
-                ux: 0, uz: 0
-            });
-        }
-    }
-    return nodes;
-}
-function startNewProject() {
-    setBaseCase();
-    switchView('static-analysis');
-}
 async function loadAndShowProjects() {
     const btnCard = document.getElementById('btn-open-project');
     const wrapper = document.getElementById('saved-projects-wrapper');
@@ -737,7 +999,6 @@ async function loadAndShowProjects() {
 
             data.projects.forEach(proj => {
                 const item = document.createElement('div');
-
                 item.style.padding = "15px";
                 item.style.background = "#f8fafc";
                 item.style.borderRadius = "15px";
@@ -746,7 +1007,6 @@ async function loadAndShowProjects() {
                 item.style.flexDirection = "column";
                 item.style.gap = "2px";
                 item.style.transition = "transform 0.1s, background 0.1s";
-
                 item.onmouseenter = () => {
                     item.style.background = "#ffffff";
                     item.style.boxShadow = "0 4px 6px rgba(0,0,0,0.05)";
@@ -782,46 +1042,84 @@ function hideProjectList() {
     wrapper.style.display = 'none';
     btnCard.style.display = 'flex';
 }
-//-----------------------------------------------------------------------------------------------
-// Bild Export (PNG)
-//-----------------------------------------------------------------------------------------------
-function exportCanvasAsPNG() {
-    const originalCanvas = document.getElementById('structureCanvas');
-    const term = document.getElementById('terminal-content');
 
-    try {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = originalCanvas.width;
-        tempCanvas.height = originalCanvas.height;
-        const tCtx = tempCanvas.getContext('2d');
+function restoreProject(proj) {
+    switchView('static-analysis');
 
+    document.getElementById('slider-width').value = proj.width;
+    document.getElementById('slider-height').value = proj.height;
+    document.getElementById('val-width').innerText = proj.width;
+    document.getElementById('val-height').innerText = proj.height;
 
-        tCtx.fillStyle = "#ffffff";
-        tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    const savedMode = proj.mode || '2d';
+    const savedDepth = proj.depth || 1;
 
-        tCtx.drawImage(originalCanvas, 0, 0);
+    document.getElementById('select-mode').value = savedMode;
+    document.getElementById('slider-depth').value = savedDepth;
+    document.getElementById('val-depth').innerText = savedDepth;
 
-        const nameInput = document.getElementById('project-name');
-        let filename = "Struktur";
-        if (nameInput && nameInput.value.trim() !== "") {
-            filename = nameInput.value.trim();
+    gridState.nodesX = proj.width;
+    gridState.nodesY = proj.height;
+    gridState.nodesZ = savedDepth;
+    gridState.mode = savedMode;
+    gridState.supports = proj.supports;
+    gridState.forces = proj.forces;
+
+    toggleModeUI();
+
+    if (proj.active_nodes && proj.active_nodes.length > 0) {
+        isShowingResult = true;
+
+        if (savedMode === '3d') {
+             const allNodes = generateBase3DNodes();
+             const activeSet = new Set(proj.active_nodes);
+
+             const w = proj.width;
+             const h = proj.height;
+
+             allNodes.forEach(n => {
+                 const id = (n.y * h * w) + (n.z * w) + n.x;
+                 n.id = id;
+                 n.active = activeSet.has(id);
+             });
+
+             lastOptimizedNodes = allNodes;
+             renderOptimizedStructure(allNodes);
+
         } else {
-            const now = new Date();
-            filename = `Struktur_${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
+            lastOptimizedNodes = reconstructNodes(proj.width, proj.height, proj.active_nodes);
+            renderOptimizedStructure(lastOptimizedNodes);
         }
 
-        const link = document.createElement('a');
-        link.download = `${filename}.png`;
-        link.href = tempCanvas.toDataURL("image/png");
-        link.click();
-
-        if (term) {
-            term.innerHTML += `<div style='color:#10b981; opacity:0.8;'>Objekt gespeichert als ${filename}.png</div>`;
-            term.scrollTop = term.scrollHeight;
-        }
-
-    } catch (e) {
-        alert("Fehler beim Speichern des Bildes.");
-        console.error(e);
+        document.getElementById('terminal-content').innerHTML = `Projekt '${proj.name}' (Optimiert) geladen.`;
+    } else {
+        isShowingResult = false;
+        lastOptimizedNodes = null;
+        document.getElementById('terminal-content').innerHTML = `Projekt-Setup '${proj.name}' geladen.`;
     }
+}
+
+function reconstructNodes(w, h, activeIndices) {
+    const nodes = [];
+    const activeSet = new Set(activeIndices);
+    let id = 0;
+    for (let z = 0; z < h; z++) {
+        for (let x = 0; x < w; x++) {
+
+            const currentId = z * w + x;
+            nodes.push({
+                id: currentId,
+                x: x,
+                z: z,
+                active: activeSet.has(currentId),
+                ux: 0, uz: 0
+            });
+        }
+    }
+    return nodes;
+}
+
+function startNewProject() {
+    setBaseCase();
+    switchView('static-analysis');
 }

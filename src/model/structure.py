@@ -2,14 +2,16 @@ import numpy as np
 from typing import List
 from tinydb import TinyDB, Query
 import os
+from scipy.sparse import lil_matrix #lösung für performance auf 3D
+from scipy.sparse.linalg import spsolve
 
 from .node import Node
-from .element import Element, Spring2D
+from .element import Element, Spring2D, Spring3D
 from ..analysis.graph_utils import check_connectivity
 ########################################################################################################
 #       Baue Struktur aus Knoten und Federn auf
 ########################################################################################################
-class Structure:
+class Structure2D:
     def __init__(self):
         self.nodes: List[Node] = []
         self.elements: List[Element] = []
@@ -276,7 +278,7 @@ class Structure:
         return results
 
     @staticmethod
-    def save_setup_to_db(name, width, height, supports, forces, active_nodes=None, db_filename='projects.json'):
+    def save_setup_to_db(name, width, height, supports, forces, active_nodes=None, mode='2d', depth=1, db_filename='projects.json'):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         db_path = os.path.join(base_dir, db_filename)
 
@@ -289,6 +291,8 @@ class Structure:
             'height': height,
             'supports': supports,
             'forces': forces,
+            'depth': depth,
+            'mode': mode,
             'active_nodes': active_nodes,
             'timestamp': str(np.datetime64('now'))
         }
@@ -307,3 +311,194 @@ class Structure:
 
         db = TinyDB(db_path)
         return db.all()
+
+########################################################################################################
+#       Baue Struktur aus Knoten und Federn auf
+########################################################################################################
+class Structure3D(Structure2D):
+    def __init__(self):
+        super().__init__()
+        self.depth = 1
+
+    def knoten_hinzufuegen(self, x: float, z: float, y: float = 0.0, fixierte_dofs: List[bool] = None) -> Node:
+        node_id = len(self.nodes)
+        if fixierte_dofs is None:
+            fixierte_dofs = [False, False, False]
+
+        neuer_knoten = Node(node_id, [x, z, y])
+        neuer_knoten.setze_randbedingung(fixierte_dofs)
+
+        n_dim = 3
+        start_index = node_id * n_dim
+        neuer_knoten.global_dof_indices = [start_index, start_index + 1, start_index + 2]
+
+        self.nodes.append(neuer_knoten)
+        return neuer_knoten
+
+    def element_hinzufuegen(self, node_id_a: int, node_id_b: int, steifigkeit: float = 1.0):
+        if not (0 <= node_id_a < len(self.nodes)) or not (0 <= node_id_b < len(self.nodes)):
+            raise ValueError("Ungültige Knoten-ID.")
+
+        node_a = self.nodes[node_id_a]
+        node_b = self.nodes[node_id_b]
+
+        element = Spring3D(node_a, node_b, steifigkeit)
+        element.id = len(self.elements)
+        self.elements.append(element)
+
+    def last_aufbringen(self, node_id: int, fx: float, fz: float, fy: float = 0.0):
+        self.forces[node_id] = np.array([fx, fz, fy])
+
+    def erstelle_globale_steifigkeitsmatrix(self) -> lil_matrix:
+        n_dof = len(self.nodes) * 3
+        k_global = lil_matrix((n_dof, n_dof))
+
+        for element in self.elements:
+            if element.node_a.active and element.node_b.active:
+                k_element = element.berechne_transformierte_steifigkeitsmatrix()
+                indizes = element.node_a.global_dof_indices + element.node_b.global_dof_indices
+
+                for local_row, global_row in enumerate(indizes):
+                    for local_col, global_col in enumerate(indizes):
+                        k_global[global_row, global_col] += k_element[local_row, local_col]
+
+        return k_global.tocsr()
+
+    def erstelle_kraftvektor(self) -> np.ndarray:
+        n_dof = len(self.nodes) * 3
+        f_global = np.zeros(n_dof)
+
+        for node_id, force in self.forces.items():
+            if self.nodes[node_id].active:
+                dofs = self.nodes[node_id].global_dof_indices
+                f_global[dofs[0]] += force[0]
+                f_global[dofs[1]] += force[1]
+                f_global[dofs[2]] += force[2]
+
+        return f_global
+
+    def loese_system(self) -> np.ndarray:
+        K = self.erstelle_globale_steifigkeitsmatrix()
+        F = self.erstelle_kraftvektor()
+
+        penalty_factor = 1e10
+
+        for node in self.nodes:
+            dofs = node.global_dof_indices
+
+            if not node.active:
+                for idx in dofs:
+                    K[idx, idx] += penalty_factor
+                    F[idx] = 0.0
+            else:
+                for i, is_fixed in enumerate(node.fixed):
+                    if is_fixed:
+                        idx = dofs[i]
+                        K[idx, idx] += penalty_factor
+                        F[idx] = 0.0
+
+        try:
+            u = spsolve(K, F)
+            self.speichere_verschiebungen(u)
+            return u
+        except Exception:
+            return None
+
+    def speichere_verschiebungen(self, u: np.ndarray):
+        if u is None:
+            return
+        for node in self.nodes:
+            ux = u[node.global_dof_indices[0]]
+            uz = u[node.global_dof_indices[1]]
+            uy = u[node.global_dof_indices[2]]
+            node.displacements = np.array([ux, uz, uy])
+            node.u_x = ux
+            node.u_z = uz
+            node.u_y = uy
+
+    def berechne_knoten_energien(self, u_global: np.ndarray):
+        energien = {n.id: 0.0 for n in self.nodes}
+
+        for element in self.elements:
+            if element.node_a.active and element.node_b.active:
+                e_val = element.berechne_verformungsenergie(u_global)
+                energien[element.node_a.id] += e_val / 2.0
+                energien[element.node_b.id] += e_val / 2.0
+        return energien
+
+    def check_stability(self) -> bool:
+        return super().check_stability()
+
+    def hole_nachbar_indizes(self, node_id: int) -> List[int]:
+        return super().hole_nachbar_indizes(node_id)
+
+    def hole_alle_nachbar_indizes(self, node_id: int) -> List[int]:
+        return super().hole_alle_nachbar_indizes(node_id)
+
+    def entferne_tote_aeste(self):
+        super().entferne_tote_aeste()
+
+    def fuelle_loecher(self):
+        pass
+
+    @classmethod
+    def create_grid(cls, width: int, height: int, depth: int):
+        struct = cls()
+        struct.width = width
+        struct.height = height
+        struct.depth = depth
+
+        for y in range(depth):
+            for z in range(height):
+                for x in range(width):
+                    fix = [False, False, False]
+                    if z == height - 1:
+                        if x == 0:
+                            fix = [False, True, False]
+                        elif x == width - 1:
+                            fix = [True, True, True]
+
+                    struct.knoten_hinzufuegen(float(x), float(z), float(y), fix)
+
+        k_diag = 1.0 / np.sqrt(2)
+        k_space = 1.0 / np.sqrt(3)
+
+        for y in range(depth):
+            for z in range(height):
+                for x in range(width):
+                    current_id = (y * height * width) + (z * width) + x
+
+                    if x < width - 1:
+                        neighbor_id = current_id + 1
+                        struct.element_hinzufuegen(current_id, neighbor_id, 1.0)
+
+                    if z < height - 1:
+                        neighbor_id = current_id + width
+                        struct.element_hinzufuegen(current_id, neighbor_id, 1.0)
+
+                    if y < depth - 1:
+                        neighbor_id = current_id + (width * height)
+                        struct.element_hinzufuegen(current_id, neighbor_id, 1.0)
+
+                    if x < width - 1 and z < height - 1:
+                        n_br = current_id + width + 1
+                        struct.element_hinzufuegen(current_id, n_br, k_diag)
+                        n_tr = current_id + 1
+                        n_bl = current_id + width
+                        struct.element_hinzufuegen(n_tr, n_bl, k_diag)
+
+                    if x < width - 1 and y < depth - 1:
+                        n_next_right = current_id + (width * height) + 1
+                        struct.element_hinzufuegen(current_id, n_next_right, k_diag)
+                        n_curr_right = current_id + 1
+                        n_next_curr = current_id + (width * height)
+                        struct.element_hinzufuegen(n_curr_right, n_next_curr, k_diag)
+
+                    if z < height - 1 and y < depth - 1:
+                        n_next_down = current_id + (width * height) + width
+                        struct.element_hinzufuegen(current_id, n_next_down, k_diag)
+                        n_curr_down = current_id + width
+                        n_next_curr = current_id + (width * height)
+                        struct.element_hinzufuegen(n_curr_down, n_next_curr, k_diag)
+
+        return struct

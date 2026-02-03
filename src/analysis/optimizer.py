@@ -48,6 +48,9 @@ def filter_energies(structure, energies):
 #       am Ende Struktur verdicken (verschönert und leifert physikalischere Ergebnisse)
 ########################################################################################################
 def verdicke_struktur(structure):
+    if getattr(structure, 'depth', 1) > 1:
+        return
+
     width = getattr(structure, 'width', 0)
     if width == 0: return
 

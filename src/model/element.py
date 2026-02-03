@@ -70,3 +70,49 @@ class Spring2D(Element):
         u_element = u_global[indizes]
         K_o = self.berechne_transformierte_steifigkeitsmatrix()
         return 0.5 * np.dot(u_element.T, np.dot(K_o, u_element))
+
+########################################################################################################
+#       Federn für 3D Struktur
+########################################################################################################
+class Spring3D:
+    def __init__(self, node_a, node_b, stiffness=1.0):
+        self.node_a = node_a
+        self.node_b = node_b
+        self.stiffness = stiffness
+        self.id = -1
+
+    def berechne_transformierte_steifigkeitsmatrix(self):
+        dx = self.node_b.x - self.node_a.x
+        dy = self.node_b.z - self.node_a.z
+        dz = getattr(self.node_b, 'y', 0) - getattr(self.node_a, 'y', 0)
+
+        length = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
+        if length == 0: return np.zeros((6, 6))
+
+        l = dx / length
+        m = dy / length
+        n = dz / length
+
+        k = self.stiffness
+
+        T_sub = np.array([
+            [l * l, l * m, l * n],
+            [m * l, m * m, m * n],
+            [n * l, n * m, n * n]
+        ])
+
+        k_matrix = np.block([
+            [T_sub, -T_sub],
+            [-T_sub, T_sub]
+        ]) * k
+
+        return k_matrix
+
+    def berechne_verformungsenergie(self, u_global):
+        idx_a = self.node_a.global_dof_indices
+        idx_b = self.node_b.global_dof_indices
+
+        u_elem = np.concatenate([u_global[idx_a], u_global[idx_b]])
+        k_elem = self.berechne_transformierte_steifigkeitsmatrix()
+
+        return 0.5 * np.dot(u_elem.T, np.dot(k_elem, u_elem))
