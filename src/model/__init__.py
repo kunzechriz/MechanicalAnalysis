@@ -1,2 +1,2 @@
 from .node import Node
-from .structure import Structure
+from .structure import Structure2D

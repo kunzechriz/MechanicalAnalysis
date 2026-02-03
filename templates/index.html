@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MechanicalDesign</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -64,13 +66,27 @@
                 <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.1); margin-bottom: 20px;">
 
                 <div class="control-group">
-                    <label>Breite: <span id="val-width">40</span></label>
+                    <label>Modus:</label>
+                    <select id="select-mode" class="glass-select" style="width: 100%; margin-top: 5px;"
+                            onchange="toggleModeUI()">
+                        <option value="2d" selected>2D (Standard)</option>
+                        <option value="3d">3D (Voxel)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Breite: <span id="val-width">41</span></label>
                     <input type="range" id="slider-width" min="5" max="100" value="40" class="styled-slider">
                 </div>
 
                 <div class="control-group">
                     <label>Höhe: <span id="val-height">10</span></label>
                     <input type="range" id="slider-height" min="3" max="50" value="10" class="styled-slider">
+                </div>
+
+                <div class="control-group" id="group-depth" style="display: none;">
+                    <label>Tiefe: <span id="val-depth">5</span></label>
+                    <input type="range" id="slider-depth" min="2" max="20" value="5" class="styled-slider">
                 </div>
 
                 <div class="control-group">
@@ -82,12 +98,15 @@
                     </select>
                 </div>
 
-                <button class="glass-btn action-btn" onclick="triggerPythonSolver()">Gewichtsoptimierung starten</button>
-                <button class="glass-btn action-btn" onclick="triggerKinematicAnalysis()">Verformung zeigen</button>
-                <button class="glass-btn action-btn" onclick="triggerForceAnalysis()">Kraftanalyse</button>
+                <button class="glass-btn action-btn" onclick="triggerPythonSolver()">Gewichtsoptimierung starten
+                </button>
+                <div id="analysis-buttons-wrapper" style="display: block;">
+                    <button class="glass-btn action-btn" onclick="triggerKinematicAnalysis()">Verformungsanalyse</button>
+                    <button class="glass-btn action-btn" onclick="triggerForceAnalysis()">Kraftanalyse</button>
+                </div>
             </div>
 
-            <div class="canvas-wrapper" style="flex-grow: 1; position: relative;">
+            <div class="canvas-wrapper" style="flex-grow: 1; position: relative; display: flex; flex-direction: column;">
 
                 <div class="canvas-toolbar glass-card"
                      style="padding: 10px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
@@ -112,32 +131,39 @@
                     <input type="range" id="slider-mass" min="10" max="100" value="50" class="styled-slider"
                            style="width: 100px;">
 
-                    <button class="glass-btn-small danger" onclick="resetAnalysis()" style="margin-left: auto;">↺
-                        Zurücksetzen
+                    <button class="glass-btn-small" onclick="exportCanvasAsPNG()"
+                            style="margin-left: auto; margin-right: 5px; background: rgba(59, 130, 246, 0.2); width: 100px; justify-content: center;">
+                        📷 Export
+                    </button>
+
+                    <button class="glass-btn-small danger" onclick="resetAnalysis()">
+                        ↺ Reset
                     </button>
                 </div>
 
-                <canvas id="structureCanvas" width="800" height="400"
-                        style="background: rgba(255,255,255,0.5); border-radius: 15px; cursor: crosshair; display: block;"></canvas>
+                <div id="view-container" style="position: relative; width: 100%; height: 400px; background: rgba(255,255,255,0.5); border-radius: 15px; overflow: hidden;">
+
+                    <canvas id="structureCanvas" width="800" height="400"
+                            style="width: 100%; height: 100%; cursor: crosshair; display: block; position: absolute; top: 0; left: 0; z-index: 10;">
+                    </canvas>
+
+                    <div id="three-container" style="width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; z-index: 20;"></div>
+                </div>
 
                 <div id="save-container" class="glass-card"
-                     style="position: absolute; bottom: 20px; right: 20px; padding: 8px; z-index: 100; transition: all 0.3s ease;">
+                     style="position: absolute; bottom: 20px; right: 20px; padding: 10px; z-index: 100; transition: all 0.3s ease;">
 
                     <div id="save-initial" style="display: block;">
                         <button class="glass-btn-small" onclick="toggleSaveUI(true)"
-                                style="background: rgba(16, 185, 129, 0.2); width: 200px; justify-content: center;">
-                            Speichern
+                                style="background: rgba(16, 185, 129, 0.2); width: 120px; justify-content: center;">
+                            💾 Speichern
                         </button>
                     </div>
-                    <button class="glass-btn-small" onclick="exportCanvasAsPNG()"
-                            style="margin-left: auto; margin-right: 5px; background: rgba(59, 130, 246, 0.2); width: 200px; justify-content: center;">
-                        Aktelle Ansicht exportieren
-                    </button>
+
                     <div id="save-form" style="display: none; align-items: center; gap: 5px;">
                         <input type="text" id="project-name" placeholder="Name..."
-                               style="background: rgba(255,255,255,0.8); border: 1px solid #ccc; padding: 5px; border-radius: 5px; width: 120px;">
-
-                        <button class="glass-btn-small" onclick="triggerSaveProject()" style="background: rgba(16, 185, 129, 0.6); color: white;">✓</button>
+                               style="background: rgba(255,255,255,0.8); border: 1px solid #ccc; padding: 5px; border-radius: 5px; width: 90px;">
+                        <button class="glass-btn-small" onclick="triggerSaveProject()" style="background: rgba(16, 185, 129, 0.6); color: white; padding: 5px 8px;">✓</button>
                         <button class="glass-btn-small danger" onclick="toggleSaveUI(false)" style="padding: 5px 8px;">✕</button>
                     </div>
                 </div>
