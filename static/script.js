@@ -423,6 +423,7 @@ function toggleModeUI() {
     const analysisWrapper = document.getElementById('analysis-buttons-wrapper');
     const canvas2D = document.getElementById('structureCanvas');
     const container3D = document.getElementById('three-container');
+    const btnExportSTL = document.getElementById('btn-export-stl');
 
     if (mode === '3d') {
         // 3D AKTIVIEREN
@@ -434,6 +435,7 @@ function toggleModeUI() {
         qualitySelect.value = "0.02";
         canvas2D.style.display = 'none';
         container3D.style.display = 'block';
+        btnExportSTL.style.display = 'block';
 
         document.getElementById('terminal-content').innerHTML =
             "<div style='color:#007aff'>3D Modus. (Nur Topologieoptimierung möglich)</div>";
@@ -445,6 +447,7 @@ function toggleModeUI() {
         qualitySelect.value = "0.01";
         depthGroup.style.display = 'none';
         if(analysisWrapper) analysisWrapper.style.display = 'block';
+        btnExportSTL.style.display = 'none';
 
         canvas2D.style.display = 'block';
         container3D.style.display = 'none';
@@ -1131,4 +1134,70 @@ function reconstructNodes(w, h, activeIndices) {
 function startNewProject() {
     setBaseCase();
     switchView('static-analysis');
+}
+//-----------------------------------------------------------------------------------------------
+// STL Export Logic
+//-----------------------------------------------------------------------------------------------
+function exportStructureAsSTL() {
+    if (gridState.mode !== '3d') {
+        alert("STL Export ist nur im 3D Modus verfügbar.");
+        return;
+    }
+
+    let nodesToExport = [];
+    if (isShowingResult && lastOptimizedNodes) {
+        nodesToExport = lastOptimizedNodes.filter(n => n.active);
+    } else {
+        nodesToExport = generateBase3DNodes();
+    }
+
+    if (nodesToExport.length === 0) {
+        alert("Keine Struktur zum Exportieren vorhanden.");
+        return;
+    }
+
+
+    const exportScene = new THREE.Scene();
+
+
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+    const offsetX = gridState.nodesX / 2;
+    const offsetZ = gridState.nodesY / 2;
+    const depth = gridState.nodesZ;
+    const offsetY_Depth = depth / 2;
+
+    nodesToExport.forEach(n => {
+        const mesh = new THREE.Mesh(geometry, material);
+
+        const posX = n.x - offsetX;
+        const posY = -(n.z - offsetZ);
+        const posZ = (n.y || 0) - offsetY_Depth;
+
+        mesh.position.set(posX, posY, posZ);
+
+        mesh.updateMatrixWorld();
+        exportScene.add(mesh);
+    });
+
+    const exporter = new THREE.STLExporter();
+    const result = exporter.parse(exportScene, { binary: true });
+
+    const blob = new Blob([result], { type: 'application/octet-stream' });
+    const link = document.createElement('a');
+    link.style.display = 'none';
+    document.body.appendChild(link);
+
+    const nameInput = document.getElementById('project-name');
+    let filename = "Struktur_3D";
+    if (nameInput && nameInput.value.trim() !== "") {
+        filename = nameInput.value.trim();
+    }
+
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.stl`;
+    link.click();
+
+    document.body.removeChild(link);
 }

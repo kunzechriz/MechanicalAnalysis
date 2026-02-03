@@ -6,6 +6,7 @@
     <title>MechanicalDesign</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -159,7 +160,10 @@
                             style="margin-left: auto; margin-right: 5px; background: rgba(59, 130, 246, 0.2); width: 200px; justify-content: center;">
                         Aktuele Ansicht exportieren
                     </button>
-
+                    <button id="btn-export-stl" class="glass-btn-small" onclick="exportStructureAsSTL()"
+                            style="background: rgba(245, 158, 11, 0.2); width: 100%; justify-content: center; display: none;">
+                        Export CAD (STL)
+                    </button>
                     <div id="save-form" style="display: none; align-items: center; gap: 5px;">
                         <input type="text" id="project-name" placeholder="Name..."
                                style="background: rgba(255,255,255,0.8); border: 1px solid #ccc; padding: 5px; border-radius: 5px; width: 90px;">
