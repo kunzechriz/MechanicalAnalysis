@@ -25,3 +25,4 @@ def check_connectivity(active_nodes: List, fixed_nodes: List, adj_list: Dict[int
                 queue.append(neighbor)
 
     return len(visited) == len(active_nodes)
+

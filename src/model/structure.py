@@ -377,6 +377,7 @@ class Structure3D(Structure2D):
 
         return f_global
 
+
     def loese_system(self) -> np.ndarray:
         K = self.erstelle_globale_steifigkeitsmatrix()
         F = self.erstelle_kraftvektor()

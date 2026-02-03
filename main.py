@@ -3,7 +3,7 @@ import sys
 import json
 
 from src.model.structure import Structure2D, Structure3D
-from src.analysis.optimizer import run_optimization
+from src.analysis.optimizer import run_optimization, set_force_templates_3d
 ########################################################################################################
 #       Initialisiere Flask Server
 ########################################################################################################
@@ -62,9 +62,13 @@ def optimize():
         if mode == '3d':
             print(f"--> Starte 3D Modus: {width}x{height}x{depth}")
             s = Structure3D.create_grid(width, height, depth)
+
+            #zwingt Lager & Kräfte zu verbinden
+            set_force_templates_3d(s, forces, width, height, depth)
         else:
             print(f"--> Starte 2D Modus: {width}x{height}")
             s = Structure2D.create_grid(width, height)
+
 
         for key, type in supports.items():
             parts = list(map(int, key.split(',')))
