@@ -404,6 +404,41 @@ class Structure3D(Structure2D):
         except Exception:
             return None
 
+    def berechne_stabkraefte(self, u_global):
+        results = []
+
+        for el in self.elements:
+            if not (el.node_a.active and el.node_b.active):
+                continue
+            idx_a = el.node_a.global_dof_indices
+            idx_b = el.node_b.global_dof_indices
+
+            ua = u_global[idx_a]  # [ux, uz, uy]
+            ub = u_global[idx_b]
+
+            pos_a = np.array([el.node_a.x, el.node_a.z, getattr(el.node_a, 'y', 0)])
+            pos_b = np.array([el.node_b.x, el.node_b.z, getattr(el.node_b, 'y', 0)])
+
+            diff = pos_b - pos_a
+            length = np.linalg.norm(diff)
+            if length == 0: continue
+            n = diff / length
+
+            delta_u = ub - ua
+            dl = np.dot(delta_u, n)
+
+            k = getattr(el, 'stiffness', 1.0)
+            force = k * dl
+
+            results.append({
+                'id': el.id,
+                'a': el.node_a.id,
+                'b': el.node_b.id,
+                'force': force
+            })
+
+        return results
+
     def speichere_verschiebungen(self, u: np.ndarray):
         if u is None:
             return
