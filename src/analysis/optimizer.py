@@ -16,39 +16,6 @@ def symmetrize_energies(structure, energies, width):
                 energies[id_left] = avg
                 energies[id_right] = avg
     return energies
-
-
-_force_templates_3d = {}
-def set_force_templates_3d(structure, force_dict, width, height, depth):
-    global _force_templates_3d
-    _force_templates_3d = {}
-
-    for key, val in force_dict.items():
-        parts = list(map(int, key.split(',')))
-        x, z = parts[0], parts[1]
-        fy = float(val.get('fy', 1000))
-        _force_templates_3d[(x, z)] = fy
-
-
-def reapply_forces_3d(structure):
-    global _force_templates_3d
-
-    structure.forces.clear()
-
-    width = getattr(structure, 'width', 0)
-    height = getattr(structure, 'height', 0)
-    depth = getattr(structure, 'depth', 1)
-
-    if width == 0 or height == 0:
-        return
-
-    for (x, z), fy in _force_templates_3d.items():
-        for y in range(depth):
-            node_id = (y * height * width) + (z * width) + x
-            if node_id < len(structure.nodes) and structure.nodes[node_id].active:
-                structure.last_aufbringen(node_id, 0, fy, 0)
-
-
 ########################################################################################################
 #       kleines Feder-Energie-Rauschen filtern
 ########################################################################################################
