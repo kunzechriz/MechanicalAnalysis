@@ -717,7 +717,6 @@ async function loadAndShowProjects() {
     const wrapper = document.getElementById('saved-projects-wrapper');
     const listContainer = document.getElementById('project-list');
 
-    // Swap
     btnCard.style.display = 'none';
     wrapper.style.display = 'block';
 
@@ -734,23 +733,20 @@ async function loadAndShowProjects() {
                 return;
             }
 
-            // Liste sortieren (neueste zuerst)
             data.projects.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
             data.projects.forEach(proj => {
                 const item = document.createElement('div');
 
-                // --- STYLING WIE IM SCREENSHOT ---
                 item.style.padding = "15px";
-                item.style.background = "#f8fafc"; // Helles Weiß/Grau wie im Bild
-                item.style.borderRadius = "15px";  // Stärker abgerundet
+                item.style.background = "#f8fafc";
+                item.style.borderRadius = "15px";
                 item.style.cursor = "pointer";
                 item.style.display = "flex";
                 item.style.flexDirection = "column";
                 item.style.gap = "2px";
                 item.style.transition = "transform 0.1s, background 0.1s";
 
-                // Hover Effekt
                 item.onmouseenter = () => {
                     item.style.background = "#ffffff";
                     item.style.boxShadow = "0 4px 6px rgba(0,0,0,0.05)";
@@ -760,7 +756,6 @@ async function loadAndShowProjects() {
                     item.style.boxShadow = "none";
                 };
 
-                // Datum formatieren
                 const dateObj = new Date(proj.timestamp);
                 const dateStr = dateObj.toLocaleDateString('de-DE');
 
@@ -786,4 +781,47 @@ function hideProjectList() {
 
     wrapper.style.display = 'none';
     btnCard.style.display = 'flex';
+}
+//-----------------------------------------------------------------------------------------------
+// Bild Export (PNG)
+//-----------------------------------------------------------------------------------------------
+function exportCanvasAsPNG() {
+    const originalCanvas = document.getElementById('structureCanvas');
+    const term = document.getElementById('terminal-content');
+
+    try {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = originalCanvas.width;
+        tempCanvas.height = originalCanvas.height;
+        const tCtx = tempCanvas.getContext('2d');
+
+
+        tCtx.fillStyle = "#ffffff";
+        tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        tCtx.drawImage(originalCanvas, 0, 0);
+
+        const nameInput = document.getElementById('project-name');
+        let filename = "Struktur";
+        if (nameInput && nameInput.value.trim() !== "") {
+            filename = nameInput.value.trim();
+        } else {
+            const now = new Date();
+            filename = `Struktur_${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
+        }
+
+        const link = document.createElement('a');
+        link.download = `${filename}.png`;
+        link.href = tempCanvas.toDataURL("image/png");
+        link.click();
+
+        if (term) {
+            term.innerHTML += `<div style='color:#10b981; opacity:0.8;'>Objekt gespeichert als ${filename}.png</div>`;
+            term.scrollTop = term.scrollHeight;
+        }
+
+    } catch (e) {
+        alert("Fehler beim Speichern des Bildes.");
+        console.error(e);
+    }
 }

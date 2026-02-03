@@ -1,4 +1,4 @@
-from typing import List, Dict, Set
+from typing import List, Dict
 
 def check_connectivity(active_nodes: List, fixed_nodes: List, adj_list: Dict[int, List[int]]) -> bool:
     """

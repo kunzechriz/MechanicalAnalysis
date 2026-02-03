@@ -124,11 +124,15 @@
                      style="position: absolute; bottom: 20px; right: 20px; padding: 8px; z-index: 100; transition: all 0.3s ease;">
 
                     <div id="save-initial" style="display: block;">
-                        <button class="glass-btn-small" onclick="toggleSaveUI(true)" style="background: rgba(16, 185, 129, 0.2);">
-                            💾 Speichern
+                        <button class="glass-btn-small" onclick="toggleSaveUI(true)"
+                                style="background: rgba(16, 185, 129, 0.2); width: 200px; justify-content: center;">
+                            Speichern
                         </button>
                     </div>
-
+                    <button class="glass-btn-small" onclick="exportCanvasAsPNG()"
+                            style="margin-left: auto; margin-right: 5px; background: rgba(59, 130, 246, 0.2); width: 200px; justify-content: center;">
+                        Aktelle Ansicht exportieren
+                    </button>
                     <div id="save-form" style="display: none; align-items: center; gap: 5px;">
                         <input type="text" id="project-name" placeholder="Name..."
                                style="background: rgba(255,255,255,0.8); border: 1px solid #ccc; padding: 5px; border-radius: 5px; width: 120px;">
