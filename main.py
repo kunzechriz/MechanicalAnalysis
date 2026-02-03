@@ -66,13 +66,11 @@ def optimize():
             print(f"--> Starte 2D Modus: {width}x{height}")
             s = Structure2D.create_grid(width, height)
 
-        # --- Supports (Lager) ---
         for key, type in supports.items():
             parts = list(map(int, key.split(',')))
             x, z = parts[0], parts[1]
 
             if mode == '3d':
-                # NEU: Schleife über die gesamte Tiefe (y)
                 for y in range(depth):
                     node_id = (y * height * width) + (z * width) + x
                     if node_id < len(s.nodes):
@@ -81,7 +79,6 @@ def optimize():
                         elif type == 'roller':
                             s.nodes[node_id].fixed = [False, True, False]
             else:
-                # 2D Logik
                 node_id = z * width + x
                 if node_id < len(s.nodes):
                     if type == 'fixed':
@@ -89,14 +86,12 @@ def optimize():
                     elif type == 'roller':
                         s.nodes[node_id].fixed = [False, True]
 
-        # --- Forces (Kräfte) ---
         for key, val in forces.items():
             parts = list(map(int, key.split(',')))
             x, z = parts[0], parts[1]
             fy = float(val.get('fy', 1000))
 
             if mode == '3d':
-                # NEU: Kraft auch über die gesamte Tiefe verteilen (Linienlast)
                 for y in range(depth):
                     node_id = (y * height * width) + (z * width) + x
                     if node_id < len(s.nodes):
@@ -106,7 +101,6 @@ def optimize():
                 if node_id < len(s.nodes):
                     s.last_aufbringen(node_id, 0, fy)
 
-        # ... (Generator Code bleibt identisch) ...
         def generate():
             gen = run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=removal_rate)
             for step_struct, is_done, msg in gen:
@@ -157,7 +151,6 @@ def analyze_kinematics():
         supports = data.get('supports', {})
         forces = data.get('forces', {})
 
-        # Supports (Identische Änderung wie oben)
         for key, type in supports.items():
             parts = list(map(int, key.split(',')))
             x, z = parts[0], parts[1]
@@ -173,7 +166,6 @@ def analyze_kinematics():
                     if type == 'fixed': s.nodes[node_id].fixed = [True, True]
                     elif type == 'roller': s.nodes[node_id].fixed = [False, True]
 
-        # Forces (Identische Änderung wie oben)
         for key, val in forces.items():
             parts = list(map(int, key.split(',')))
             x, z = parts[0], parts[1]
@@ -188,7 +180,6 @@ def analyze_kinematics():
                 if node_id < len(s.nodes) and s.nodes[node_id].active:
                     s.last_aufbringen(node_id, 0, fy)
 
-        # ... (Rest bleibt identisch) ...
         u = s.loese_system()
         if u is None: return jsonify({"status": "error", "message": "Struktur instabil"})
         stabkraefte = s.berechne_stabkraefte(u)
@@ -226,10 +217,8 @@ def save_project():
             name=name,
             width=data.get('width'),
             height=data.get('height'),
-            # NEU: Lesen aus Request
             mode=data.get('mode', '2d'),
             depth=data.get('depth', 1),
-            # ---
             supports=data.get('supports'),
             forces=data.get('forces'),
             active_nodes=data.get('active_nodes')

@@ -34,7 +34,6 @@ class Node:
 
     @property
     def y(self) -> float:
-        """Gibt Tiefe zurück (für 3D wichtig!)"""
         return self.coords[2] if self.dim > 2 else 0.0
 
     def __repr__(self):

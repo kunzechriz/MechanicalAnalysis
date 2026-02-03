@@ -131,10 +131,6 @@
                     <input type="range" id="slider-mass" min="10" max="100" value="50" class="styled-slider"
                            style="width: 100px;">
 
-                    <button class="glass-btn-small" onclick="exportCanvasAsPNG()"
-                            style="margin-left: auto; margin-right: 5px; background: rgba(59, 130, 246, 0.2); width: 100px; justify-content: center;">
-                        📷 Export
-                    </button>
 
                     <button class="glass-btn-small danger" onclick="resetAnalysis()">
                         ↺ Reset
@@ -155,10 +151,14 @@
 
                     <div id="save-initial" style="display: block;">
                         <button class="glass-btn-small" onclick="toggleSaveUI(true)"
-                                style="background: rgba(16, 185, 129, 0.2); width: 120px; justify-content: center;">
-                            💾 Speichern
+                                style="background: rgba(16, 185, 129, 0.2); width: 200px; justify-content: center;">
+                            Speichern
                         </button>
                     </div>
+                    <button class="glass-btn-small" onclick="exportCanvasAsPNG()"
+                            style="margin-left: auto; margin-right: 5px; background: rgba(59, 130, 246, 0.2); width: 200px; justify-content: center;">
+                        Aktuele Ansicht exportieren
+                    </button>
 
                     <div id="save-form" style="display: none; align-items: center; gap: 5px;">
                         <input type="text" id="project-name" placeholder="Name..."

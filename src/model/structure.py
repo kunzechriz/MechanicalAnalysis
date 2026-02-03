@@ -439,7 +439,7 @@ class Structure3D(Structure2D):
         super().entferne_tote_aeste()
 
     def fuelle_loecher(self):
-        super().fuelle_loecher()
+        pass
 
     @classmethod
     def create_grid(cls, width: int, height: int, depth: int):

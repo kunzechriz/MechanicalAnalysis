@@ -15,13 +15,11 @@ let gridState = {
     forces: {},
     nodesX: 40,
     nodesY: 10,
-    nodesZ: 1, // Default depth
+    nodesZ: 1,
     mode: '2d'
 };
 
-let isShowingResult = false; // Wichtig: Unterscheidet zwischen Setup und Ergebnis
-
-// --- Event Listeners ---
+let isShowingResult = false;
 
 sliderDepth.addEventListener('input', (e) => {
     document.getElementById('val-depth').innerText = e.target.value;
@@ -41,7 +39,6 @@ sliderMass.addEventListener('input', (e) => { document.getElementById('val-mass'
 sliderForce.addEventListener('input', (e) => { document.getElementById('val-force').innerText = e.target.value; });
 
 canvas.addEventListener('mousedown', (e) => {
-    // Wenn wir im Ergebnis-Modus klicken, setzen wir zurück zum Setup
     if (isShowingResult) {
         setBaseCase();
         return;
@@ -59,54 +56,43 @@ function setBaseCase() {
     if(term) term.innerHTML = "System reset. Base case applied.";
     if(statusDot) statusDot.classList.remove('active');
 
-    // Grid Werte aktualisieren
     gridState.nodesX = parseInt(sliderW.value);
     gridState.nodesY = parseInt(sliderH.value);
     gridState.nodesZ = (gridState.mode === '3d') ? parseInt(sliderDepth.value) : 1;
 
-    // Standard Lager/Kräfte setzen (Reset)
     gridState.supports = {};
     gridState.forces = {};
 
-    // Standard Lagerung (Unten Links Roller, Unten Rechts Fixed)
     const leftBottom = `0,${gridState.nodesY - 1}`;
     gridState.supports[leftBottom] = "roller";
     const rightBottom = `${gridState.nodesX - 1},${gridState.nodesY - 1}`;
     gridState.supports[rightBottom] = "fixed";
 
-    // Standard Kraft (Oben Mitte)
     const topMiddleX = Math.floor(gridState.nodesX / 2);
     const topMiddle = `${topMiddleX},0`;
     gridState.forces[topMiddle] = { fy: 1000 };
 
-    // RENDERING ENTSCHEIDUNG
     if (gridState.mode === '3d') {
-        // 3D: Wir müssen die Punkte client-seitig generieren, um sie anzuzeigen
         if (!renderer3D) initThreeJS();
 
-        // 1. Container sichtbar machen
         document.getElementById('structureCanvas').style.display = 'none';
         document.getElementById('three-container').style.display = 'block';
 
-        // 2. Basis-Gitter generieren und rendern
         const baseNodes = generateBase3DNodes();
         renderThreeJSScene(baseNodes);
     } else {
-        // 2D: Canvas nutzen
         document.getElementById('three-container').style.display = 'none';
         document.getElementById('structureCanvas').style.display = 'block';
         updateCanvas();
     }
 }
 
-// Hilfsfunktion: Erzeugt Client-seitig das 3D Gitter für die Vorschau
 function generateBase3DNodes() {
     const nodes = [];
     const w = gridState.nodesX;
     const h = gridState.nodesY;
     const d = gridState.nodesZ;
 
-    // Einfache Schleife um alle Punkte zu erzeugen
     for(let y = 0; y < d; y++) {
         for(let z = 0; z < h; z++) {
             for(let x = 0; x < w; x++) {
@@ -123,7 +109,7 @@ function generateBase3DNodes() {
 }
 
 function handleCanvasClick(e) {
-    if (gridState.mode === '3d') return; // Kein Klicken im 3D Canvas (vorerst)
+    if (gridState.mode === '3d') return;
 
     const rect = canvas.getBoundingClientRect();
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
@@ -256,7 +242,6 @@ function render2DCanvas(nodes) {
                     ctx.lineTo(posX, posY + spacing);
                 }
             }
-            // Diagonalen (optional für Visualisierung)
             if (x < gridState.nodesX - 1 && y < gridState.nodesY - 1) {
                  if (activeMap.has(`${x},${y}`) && activeMap.has(`${x+1},${y+1}`)) {
                     ctx.moveTo(posX, posY);
@@ -401,7 +386,7 @@ async function triggerPythonSolver() {
                     }
 
                     if (result.nodes) {
-                        isShowingResult = true; // Jetzt sind wir im Ergebnis-Modus
+                        isShowingResult = true;
                         lastOptimizedNodes = result.nodes;
                         renderOptimizedStructure(result.nodes);
                     }
@@ -455,7 +440,6 @@ function toggleModeUI() {
         canvas2D.style.display = 'block';
         container3D.style.display = 'none';
     }
-    // Nach dem Switch IMMER den BaseCase (Setup) laden, nicht das letzte Ergebnis
     setBaseCase();
 }
 
@@ -463,7 +447,6 @@ function toggleModeUI() {
 // Threejs Logik (Erweitert für High-Quality Rendering)
 //-----------------------------------------------------------------------------------------------
 let renderer3D, scene3D, camera3D, controls3D;
-// Wir speichern Referenzen auf die Objekte, um sie sauber zu löschen
 let threeObjects = {
     nodes: null,
     lines: null,
@@ -479,23 +462,21 @@ function initThreeJS() {
         const height = container.clientHeight || 400;
 
         scene3D = new THREE.Scene();
-        scene3D.background = new THREE.Color(0xffffff); // Weißer Hintergrund
+        scene3D.background = new THREE.Color(0xffffff);
 
-        // Kamera etwas weiter weg und schräger Blickwinkel
         camera3D = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
         camera3D.position.set(40, 40, 60);
 
         renderer3D = new THREE.WebGLRenderer({ antialias: true });
         renderer3D.setSize(width, height);
-        renderer3D.setPixelRatio(window.devicePixelRatio); // Schärferes Bild
+        renderer3D.setPixelRatio(window.devicePixelRatio);
 
         container.appendChild(renderer3D.domElement);
 
         controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
         controls3D.enableDamping = true;
 
-        // Licht hinzufügen (für die 3D Kugeln)
-        const ambientLight = new THREE.AmbientLight(0x404040, 1.5); // Weiches Licht
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
         scene3D.add(ambientLight);
         const dirLight = new THREE.DirectionalLight(0xffffff, 1);
         dirLight.position.set(10, 20, 10);
@@ -506,7 +487,6 @@ function initThreeJS() {
 function renderThreeJSScene(nodes) {
     if (!scene3D) return;
 
-    // 1. Aufräumen
     if (threeObjects.nodes) scene3D.remove(threeObjects.nodes);
     if (threeObjects.lines) scene3D.remove(threeObjects.lines);
     threeObjects.supports.forEach(o => scene3D.remove(o));
@@ -517,13 +497,11 @@ function renderThreeJSScene(nodes) {
     const activeNodes = nodes.filter(n => n.active !== false);
     if (activeNodes.length === 0) return;
 
-    // Offsets
     const offsetX = gridState.nodesX / 2;
     const offsetZ = gridState.nodesY / 2;
     const depth = gridState.nodesZ;
     const offsetY_Depth = depth / 2;
 
-    // --- A. KNOTEN ---
     const sphereGeo = new THREE.SphereGeometry(0.3, 16, 16);
     const sphereMat = new THREE.MeshPhongMaterial({ color: 0x3b82f6 });
     const nodeMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, activeNodes.length);
@@ -545,7 +523,6 @@ function renderThreeJSScene(nodes) {
     scene3D.add(nodeMesh);
     threeObjects.nodes = nodeMesh;
 
-    // --- B. LINIEN ---
     const linePoints = [];
     function checkAndAddLine(n, dx, dz, dy) {
         const nx = n.x + dx;
@@ -573,15 +550,13 @@ function renderThreeJSScene(nodes) {
         threeObjects.lines = lineSegments;
     }
 
-    // --- C. LAGER (Supports) - Jetzt in die Tiefe ---
     for (const [key, type] of Object.entries(gridState.supports)) {
         const [gx, gz] = key.split(',').map(Number);
 
-        // Schleife über die Tiefe
         for (let y = 0; y < depth; y++) {
             const px = gx - offsetX;
             const py = -(gz - offsetZ);
-            const pz = y - offsetY_Depth; // Z-Position (Tiefe)
+            const pz = y - offsetY_Depth;
 
             const boxGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
             const boxMat = new THREE.MeshLambertMaterial({ color: 0xef4444 });
@@ -593,15 +568,13 @@ function renderThreeJSScene(nodes) {
         }
     }
 
-    // --- D. KRÄFTE (Forces) - Jetzt in die Tiefe ---
     for (const [key, val] of Object.entries(gridState.forces)) {
         const [gx, gz] = key.split(',').map(Number);
 
-        // Schleife über die Tiefe
         for (let y = 0; y < depth; y++) {
             const px = gx - offsetX;
             const py = -(gz - offsetZ);
-            const pz = y - offsetY_Depth; // Z-Position
+            const pz = y - offsetY_Depth;
 
             const dir = new THREE.Vector3(0, -1, 0);
             const origin = new THREE.Vector3(px, py + 2, pz);
@@ -640,11 +613,10 @@ async function triggerKinematicAnalysis() {
         return;
     }
 
-    // Toggle Logic
     if (isShowingDeformation) {
         isShowingDeformation = false;
         if (isShowingResult && lastOptimizedNodes) renderOptimizedStructure(lastOptimizedNodes);
-        else updateCanvas(); // Zurück zum Setup
+        else updateCanvas();
         return;
     }
 
@@ -653,9 +625,6 @@ async function triggerKinematicAnalysis() {
 
     const currentForce = parseFloat(document.getElementById('slider-force').value);
 
-    // --- FIX: Analyse Kontext ---
-    // Wenn wir im "Ergebnis Modus" sind, nimm die optimierten Knoten IDs.
-    // Wenn NICHT (Base Case), sende null -> Server nimmt volles Gitter.
     let activeIndices = null;
 
     if (isShowingResult && lastOptimizedNodes && lastOptimizedNodes.length > 0) {
@@ -663,7 +632,6 @@ async function triggerKinematicAnalysis() {
             .filter(n => n.active)
             .map(n => n.id);
     }
-    // ----------------------------
 
     const payload = {
         width: gridState.nodesX,
@@ -715,7 +683,6 @@ function renderDeformation(nodes, maxDisp) {
 
     const width = gridState.nodesX;
 
-    // Node Map für schnelle Suche
     const nodeMap = new Map();
     nodes.forEach(n => nodeMap.set(n.id, n));
 
@@ -723,12 +690,10 @@ function renderDeformation(nodes, maxDisp) {
     ctx.lineWidth = 1;
     ctx.beginPath();
 
-    // Gitter zeichnen (verzerrt)
     nodes.forEach(n => {
         const drawX = offsetX + n.x * spacing + (n.ux * visualScale);
         const drawY = offsetY + n.z * spacing + (n.uz * visualScale);
 
-        // Nach rechts verbinden
         if (n.x < width - 1) {
             const rightId = n.id + 1;
             if (nodeMap.has(rightId)) {
@@ -739,7 +704,6 @@ function renderDeformation(nodes, maxDisp) {
                 ctx.lineTo(rX, rY);
             }
         }
-        // Nach unten verbinden
         const downId = n.id + width;
         if (nodeMap.has(downId)) {
             const down = nodeMap.get(downId);
@@ -748,7 +712,6 @@ function renderDeformation(nodes, maxDisp) {
             ctx.moveTo(drawX, drawY);
             ctx.lineTo(dX, dY);
         }
-        // Diagonalen
         if (n.x < width - 1) {
             const diagDRId = n.id + width + 1;
             if (nodeMap.has(diagDRId)) {
@@ -772,7 +735,6 @@ function renderDeformation(nodes, maxDisp) {
     });
     ctx.stroke();
 
-    // Knoten Punkte
     nodes.forEach(n => {
         const drawX = offsetX + n.x * spacing + (n.ux * visualScale);
         const drawY = offsetY + n.z * spacing + (n.uz * visualScale);
@@ -782,7 +744,6 @@ function renderDeformation(nodes, maxDisp) {
         ctx.fillStyle = getHeatmapColor(n.disp, maxDisp);
         ctx.fill();
 
-        // Supports etc. mappen wir hier vereinfacht über key
         const key = `${n.x},${n.z}`;
         if (gridState.supports[key]) drawSymbol(drawX, drawY, gridState.supports[key]);
         if (gridState.forces[key]) drawArrow(drawX, drawY);
@@ -814,12 +775,10 @@ async function triggerForceAnalysis() {
     term.innerHTML = "<div style='opacity:0.6'>Berechne Kräfte...</div>";
     const currentForce = parseFloat(document.getElementById('slider-force').value);
 
-    // --- FIX: Analyse Kontext ---
     let activeIndices = null;
     if (isShowingResult && lastOptimizedNodes && lastOptimizedNodes.length > 0) {
         activeIndices = lastOptimizedNodes.filter(n => n.active).map(n => n.id);
     }
-    // ----------------------------
 
     const payload = {
         width: gridState.nodesX,
@@ -924,10 +883,8 @@ async function triggerSaveProject() {
         name: name,
         width: gridState.nodesX,
         height: gridState.nodesY,
-        // NEU: Mode und Tiefe mitsenden
         mode: gridState.mode,
         depth: gridState.nodesZ,
-        // ---
         supports: gridState.supports,
         forces: gridState.forces,
         active_nodes: activeNodesList
@@ -973,7 +930,6 @@ function exportCanvasAsPNG() {
     const originalCanvas = document.getElementById('structureCanvas');
     const term = document.getElementById('terminal-content');
 
-    // Wenn 3D Modus, können wir das ThreeJS Canvas exportieren
     if(gridState.mode === '3d') {
         if(!renderer3D) return;
         const link = document.createElement('a');
@@ -1018,9 +974,6 @@ function exportCanvasAsPNG() {
     }
 }
 
-// ... Projekt laden Funktionen (loadAndShowProjects, restoreProject) bleiben unverändert ...
-// Du kannst den Block aus deinem vorherigen Code übernehmen oder ich kann ihn nochmal anhängen.
-// Der Kürze halber nehme ich an, sie sind noch da. Falls nicht, sag bescheid.
 async function loadAndShowProjects() {
     const btnCard = document.getElementById('btn-open-project');
     const wrapper = document.getElementById('saved-projects-wrapper');
@@ -1093,14 +1046,11 @@ function hideProjectList() {
 function restoreProject(proj) {
     switchView('static-analysis');
 
-    // UI Werte setzen
     document.getElementById('slider-width').value = proj.width;
     document.getElementById('slider-height').value = proj.height;
     document.getElementById('val-width').innerText = proj.width;
     document.getElementById('val-height').innerText = proj.height;
 
-    // NEU: Tiefe und Mode wiederherstellen
-    // Falls alte Projekte kein 'mode' haben, Fallback auf '2d'
     const savedMode = proj.mode || '2d';
     const savedDepth = proj.depth || 1;
 
@@ -1108,7 +1058,6 @@ function restoreProject(proj) {
     document.getElementById('slider-depth').value = savedDepth;
     document.getElementById('val-depth').innerText = savedDepth;
 
-    // Grid State laden
     gridState.nodesX = proj.width;
     gridState.nodesY = proj.height;
     gridState.nodesZ = savedDepth;
@@ -1116,24 +1065,15 @@ function restoreProject(proj) {
     gridState.supports = proj.supports;
     gridState.forces = proj.forces;
 
-    // UI Umschalten (Buttons verstecken/zeigen, Canvas/ThreeJS wechseln)
     toggleModeUI();
 
     if (proj.active_nodes && proj.active_nodes.length > 0) {
         isShowingResult = true;
-        // Rekonstruktion
-        // Achtung: reconstructNodes muss jetzt evtl. auch 3D können,
-        // aber für die reine Visualisierung in renderOptimizedStructure reicht die Liste oft.
-        // Besser: Wir laden das Base Grid neu und setzen active flags.
 
         if (savedMode === '3d') {
-             // 3D Rekonstruktion (Vereinfacht: Wir bauen das ganze Gitter und filtern)
-             const allNodes = generateBase3DNodes(); // Unsere Hilfsfunktion von vorhin
+             const allNodes = generateBase3DNodes();
              const activeSet = new Set(proj.active_nodes);
 
-             // Wir müssen die IDs matchen.
-             // generateBase3DNodes hat keine IDs, wir müssen sie generieren
-             // ID Logik: (y * H * W) + (z * W) + x
              const w = proj.width;
              const h = proj.height;
 
@@ -1147,17 +1087,14 @@ function restoreProject(proj) {
              renderOptimizedStructure(allNodes);
 
         } else {
-            // 2D Rekonstruktion
             lastOptimizedNodes = reconstructNodes(proj.width, proj.height, proj.active_nodes);
             renderOptimizedStructure(lastOptimizedNodes);
         }
 
         document.getElementById('terminal-content').innerHTML = `Projekt '${proj.name}' (Optimiert) geladen.`;
     } else {
-        // Nur Setup laden
         isShowingResult = false;
         lastOptimizedNodes = null;
-        // toggleModeUI ruft am Ende setBaseCase auf, was das Rendering übernimmt.
         document.getElementById('terminal-content').innerHTML = `Projekt-Setup '${proj.name}' geladen.`;
     }
 }
@@ -1168,9 +1105,7 @@ function reconstructNodes(w, h, activeIndices) {
     let id = 0;
     for (let z = 0; z < h; z++) {
         for (let x = 0; x < w; x++) {
-            // ID Logik muss mit Backend Structure2D übereinstimmen (z*w + x)
-            // Backend nutzt: node_id = z * width + x
-            // Wir müssen sicherstellen, dass wir dieselbe ID generieren
+
             const currentId = z * w + x;
             nodes.push({
                 id: currentId,
