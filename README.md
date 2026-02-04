@@ -90,7 +90,7 @@ Im Rahmen des Projekts wurden folgende Erweiterungen implementiert:
 *   **Kinematische Simulation**: Berechnung von Knotenverschiebungen und Stabkräften.
 ![Krafanalyse](images/Kräfteanalyse.jpeg)
 ![Verformungsanalyse](images/Verformungsanalyse.jpeg)
-*   **Persistenz**: Speichern und Laden von Projektzuständen.
+*   **Persistenz**: Speichern und Laden von Projektzuständen über TinyDB in der `projects.json`
 *   **Live-Logging**: Server-Logs werden in Echtzeit im Frontend angezeigt.
 *   **Objekt-Upload**: Hochladen von Strukturen aus einer .png Datei, wobei jedes schwarze Pixel ein Knoten darstellt und das restliche Bild weiß sein muss.
 Zwei Beispiele finden sich unter `test_uploads/`.
