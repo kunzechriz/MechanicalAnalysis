@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request, render_template, Response, stream_with_context
 import sys
 import json
+import cv2
+import numpy as np
 
 from src.model.structure import Structure2D, Structure3D
 from src.analysis.optimizer import run_optimization
@@ -244,5 +246,68 @@ def get_projects():
         return jsonify({"status": "success", "projects": projects})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+########################################################################################################
+#       Upload Image to UI
+########################################################################################################
+@app.route('/api/upload_image', methods=['POST'])
+def upload_image():
+    try:
+        file = request.files['image']
+
+        file_bytes = np.frombuffer(file.read(), np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_GRAYSCALE)
+
+        if img is None:
+            return jsonify({"status": "error", "message": "Konnte Bild nicht lesen"}), 400
+
+        h, w = img.shape
+
+        max_dim = 64
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            new_w = int(w * scale)
+            new_h = int(h * scale)
+            img_resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        else:
+            img_resized = img
+            new_w, new_h = w, h
+
+        _, thresh = cv2.threshold(img_resized, 128, 255, cv2.THRESH_BINARY_INV)
+
+        s = Structure2D.create_grid(new_w, new_h)
+
+        nodes_data = []
+
+        for n in s.nodes:
+            px_x = int(n.x)
+            px_y = int(n.z)
+
+            if 0 <= px_y < new_h and 0 <= px_x < new_w:
+                pixel_val = thresh[px_y, px_x]
+                n.active = bool(pixel_val > 0)
+            else:
+                n.active = False
+
+            nodes_data.append({
+                "id": n.id,
+                "x": n.x,
+                "z": n.z,
+                "active": n.active,
+                "ux": 0, "uz": 0
+            })
+
+        return jsonify({
+            "status": "success",
+            "nodes": nodes_data,
+            "width": new_w,
+            "height": new_h,
+            "message": f"Importiert: {new_w}x{new_h} Knoten"
+        })
+
+    except Exception as e:
+        print(f"UPLOAD ERROR: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
