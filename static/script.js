@@ -1259,6 +1259,12 @@ function confirmUpload() {
     gridState.nodesX = tempImportData.width;
     gridState.nodesY = tempImportData.height;
 
+    //switch to 2D
+    gridState.mode = '2d';
+    const modeSelect = document.getElementById('select-mode');
+    if(modeSelect) modeSelect.value = '2d';
+    toggleModeUI();
+
     gridState.activeMap = new Set();
     tempImportData.nodes.forEach(n => {
         if(n.active) gridState.activeMap.add(`${n.x},${n.z}`);

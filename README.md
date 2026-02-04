@@ -43,6 +43,7 @@ Starten Sie den Flask-Server über die Kommandozeile oder führen sie die main.p
 
 ```bash
 python main.py
+# Unter Mac/Linux: python3 main.py
 ```
 
 Sobald der Server läuft (achten Sie auf die Ausgabe `Running on http://127.0.0.1:5000`), öffnen Sie Ihren Webbrowser und rufen Sie folgende Adresse auf:
