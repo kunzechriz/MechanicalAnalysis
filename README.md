@@ -137,7 +137,7 @@ Während der Entwicklung traten verschiedene technische Hürden auf, die wie fol
 
 ### 4. 3D-Mapping (Offenes Problem)
 *   **Problem**: Im 3D-Modus kommt es aktuell noch zu Diskrepanzen zwischen der Auswahl im 2D-Interface (Projektion) und den tatsächlichen Knoten im 3D-Raum. Lager und Kräfte werden teilweise nicht korrekt mit der internen Struktur verknüpft, da die Indizes beim "Hochziehen" der 2D-Eingabe in die Tiefe (z-Achse) nicht immer konsistent gemappt werden.
-*   **Status**: Der Fix für das Index-Mapping ist in Arbeit und wird in einem zukünftigen Update nachgereicht.
+*   **Status**: Der Fix für das Index-Mapping ist in Arbeit und wird in einem zukünftigen Update nachgereicht. Zudem wurde für die 3D Visualisierung mit Hilfe von KI auf ThreeJS gesetzt um die Performance zu erhöhen.
 
 ### 5. Bild-Import & Daten-Konsistenz
 * **Problem**: Die Integration einer "Image-to-Simulation"-Funktion führte zu Synchronisationsproblemen zwischen Frontend und Backend. Da hochgeladene Skizzen beliebige Dimensionen haben (z. B. 32x32 Pixel), stimmten diese oft nicht mit den voreingestellten Slider-Werten (z. B. 40x10) überein. Dies führte dazu, dass das Analysetool die Struktur nicht rendern konnte, da die Knoten-Indizes falsch waren. 
