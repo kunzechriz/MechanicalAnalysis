@@ -10,14 +10,16 @@ const sliderMass = document.getElementById('slider-mass');
 const sliderForce = document.getElementById('slider-force');
 const sliderDepth = document.getElementById('slider-depth');
 
+let importedActiveMap = null;
+
 let gridState = {
     supports: {},
     forces: {},
     nodesX: 40,
     nodesY: 10,
-    nodesZ: 1,
+    nodesZ: 4,
     mode: '2d',
-    activeMap: null // NEU: Speichert die importierte Form
+    activeMap: null
 };
 
 let isShowingResult = false;
@@ -30,18 +32,19 @@ sliderDepth.addEventListener('input', (e) => {
 
 sliderW.addEventListener('input', (e) => {
     document.getElementById('val-width').innerText = e.target.value;
+    importedActiveMap = null;
     setBaseCase();
 });
 sliderH.addEventListener('input', (e) => {
     document.getElementById('val-height').innerText = e.target.value;
+    importedActiveMap = null;
     setBaseCase();
 });
 sliderMass.addEventListener('input', (e) => { document.getElementById('val-mass').innerText = e.target.value; });
 sliderForce.addEventListener('input', (e) => { document.getElementById('val-force').innerText = e.target.value; });
 
 canvas.addEventListener('mousedown', (e) => {
-    // Wenn wir ein Ergebnis anzeigen, resettet ein Klick alles.
-    // Falls wir ein Bild importiert haben (isShowingResult=false, aber activeMap!=null), dürfen wir editieren!
+
     if (isShowingResult) {
         setBaseCase();
         return;
@@ -65,7 +68,13 @@ function setBaseCase() {
 
     gridState.supports = {};
     gridState.forces = {};
-    gridState.activeMap = null; // Reset der Form
+    gridState.activeMap = null;
+
+    if (importedActiveMap) {
+        gridState.activeMap = new Set(importedActiveMap);
+    } else {
+        gridState.activeMap = null;
+    }
 
     const leftBottom = `0,${gridState.nodesY - 1}`;
     gridState.supports[leftBottom] = "roller";
@@ -115,7 +124,6 @@ function handleCanvasClick(e) {
     const yIdx = Math.round((mouseY - offsetY) / spacing);
 
     if (xIdx >= 0 && xIdx < gridState.nodesX && yIdx >= 0 && yIdx < gridState.nodesY) {
-        // NEU: Nur klicken erlauben, wenn Knoten existiert (bei Import)
         if (gridState.activeMap && !gridState.activeMap.has(`${xIdx},${yIdx}`)) {
             return;
         }
@@ -152,7 +160,6 @@ function calculateGridMetrics() {
     return { spacing, offsetX, offsetY };
 }
 
-// NEU: updateCanvas respektiert jetzt activeMap
 function updateCanvas() {
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -162,14 +169,12 @@ function updateCanvas() {
 
     for (let y = 0; y < gridState.nodesY; y++) {
         for (let x = 0; x < gridState.nodesX; x++) {
-            // Nur zeichnen, wenn Knoten aktiv (oder kein Import aktiv ist)
             const exists = !gridState.activeMap || gridState.activeMap.has(`${x},${y}`);
             if (!exists) continue;
 
             const posX = offsetX + x * spacing;
             const posY = offsetY + y * spacing;
 
-            // Linie rechts
             if (x < gridState.nodesX - 1) {
                 const rightExists = !gridState.activeMap || gridState.activeMap.has(`${x+1},${y}`);
                 if (rightExists) {
@@ -177,7 +182,6 @@ function updateCanvas() {
                     ctx.lineTo(posX + spacing, posY);
                 }
             }
-            // Linie unten
             if (y < gridState.nodesY - 1) {
                 const downExists = !gridState.activeMap || gridState.activeMap.has(`${x},${y+1}`);
                 if (downExists) {
@@ -185,7 +189,6 @@ function updateCanvas() {
                     ctx.lineTo(posX, posY + spacing);
                 }
             }
-            // Diagonalen (optional)
             if (x < gridState.nodesX - 1 && y < gridState.nodesY - 1) {
                 const rExists = !gridState.activeMap || gridState.activeMap.has(`${x+1},${y}`);
                 const dExists = !gridState.activeMap || gridState.activeMap.has(`${x},${y+1}`);
@@ -202,7 +205,6 @@ function updateCanvas() {
     }
     ctx.stroke();
 
-    // Knotenpunkte
     for (let x = 0; x < gridState.nodesX; x++) {
         for (let y = 0; y < gridState.nodesY; y++) {
             const exists = !gridState.activeMap || gridState.activeMap.has(`${x},${y}`);
@@ -221,23 +223,19 @@ function updateCanvas() {
     }
 }
 
-// NEU: Hilfsfunktion für ALLE Trigger (Speichern, Optimieren, Analyse)
 function getActiveIndices() {
-    // Fall 1: Ergebnis wird angezeigt
     if (isShowingResult && lastOptimizedNodes) {
         return lastOptimizedNodes.filter(n => n.active).map(n => n.id);
     }
-    // Fall 2: Bild importiert (activeMap vorhanden)
     if (gridState.activeMap) {
         const indices = [];
         const w = gridState.nodesX;
         gridState.activeMap.forEach(key => {
             const [x, y] = key.split(',').map(Number);
-            indices.push(y * w + x); // ID Berechnung
+            indices.push(y * w + x);
         });
         return indices;
     }
-    // Fall 3: Standard Rechteck
     return null;
 }
 
@@ -380,7 +378,6 @@ async function triggerPythonSolver() {
     const currentForce = parseFloat(sliderForce.value);
     const qualityRate = parseFloat(document.getElementById('select-quality').value);
 
-    // NEU: Nutze Helper Funktion
     const activeIndices = getActiveIndices();
     if(activeIndices && activeIndices.length > 0) {
         term.innerHTML += `<div style='color:#007aff'>Starte Optimierung auf bestehender Struktur (${activeIndices.length} Knoten)...</div>`;
@@ -394,7 +391,7 @@ async function triggerPythonSolver() {
         mass_ratio: parseInt(sliderMass.value) / 100,
         supports: gridState.supports,
         removal_rate: qualityRate,
-        active_nodes: activeIndices, // Sende Import-Daten oder Ergebnis
+        active_nodes: activeIndices,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
             acc[key] = { fy: currentForce };
             return acc;
@@ -443,7 +440,7 @@ async function triggerPythonSolver() {
             }
         }
     } catch (err) {
-        term.innerHTML += `<br><div style='color:#ef4444;'>⚠ ERROR: ${err.message}</div>`;
+        term.innerHTML += `<br><div style='color:#ef4444;'>ERROR: ${err.message}</div>`;
         statusDot.classList.remove('active');
     } finally {
         clearInterval(logInterval);
@@ -639,7 +636,6 @@ async function triggerKinematicAnalysis() {
     term.innerHTML = "<div style='opacity:0.6'>Berechne Verformung (2D)...</div>";
     const currentForce = parseFloat(document.getElementById('slider-force').value);
 
-    // NEU: Nutze Helper
     const activeIndices = getActiveIndices();
 
     const payload = {
@@ -768,7 +764,6 @@ async function triggerForceAnalysis() {
     term.innerHTML = "<div style='opacity:0.6'>Berechne Kräfte...</div>";
     const currentForce = parseFloat(document.getElementById('slider-force').value);
 
-    // NEU: Nutze Helper
     const activeIndices = getActiveIndices();
 
     const payload = {
@@ -857,7 +852,6 @@ async function triggerSaveProject() {
         return;
     }
 
-    // NEU: Speicher-Logik fixen mit Helper
     const activeNodesList = getActiveIndices();
 
     const payload = {
@@ -1182,26 +1176,26 @@ function confirmUpload() {
     if (!tempImportData) return;
     document.getElementById('preview-modal-overlay').style.display = 'none';
 
-    switchView('static-analysis'); // Reset
+    switchView('static-analysis');
 
     gridState.nodesX = tempImportData.width;
     gridState.nodesY = tempImportData.height;
 
-    // NEU: activeMap setzen für Editor
     gridState.activeMap = new Set();
     tempImportData.nodes.forEach(n => {
         if(n.active) gridState.activeMap.add(`${n.x},${n.z}`);
     });
+    importedActiveMap = new Set(gridState.activeMap);
 
     const sW = document.getElementById('slider-width');
     const sH = document.getElementById('slider-height');
     if(sW) { sW.value = tempImportData.width; document.getElementById('val-width').innerText = tempImportData.width; }
     if(sH) { sH.value = tempImportData.height; document.getElementById('val-height').innerText = tempImportData.height; }
 
-    isShowingResult = false; // Wir sind im Editier-Modus
+    isShowingResult = false;
     lastOptimizedNodes = tempImportData.nodes;
 
-    updateCanvas(); // Nutzt activeMap
+    updateCanvas();
     document.getElementById('terminal-content').innerHTML += `<div style='color:#10b981;'>Geometrie (${gridState.nodesX}x${gridState.nodesY}) übernommen.</div>`;
     tempImportData = null;
 }
