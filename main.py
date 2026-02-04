@@ -247,6 +247,23 @@ def get_projects():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/delete_project', methods=['POST'])
+def delete_project():
+    try:
+        data = request.json
+        name = data.get('name')
+        if not name:
+            return jsonify({"status": "error", "message": "Kein Name angegeben"}), 400
+
+        success = Structure2D.delete_project_from_db(name)
+
+        if success:
+            return jsonify({"status": "success", "message": f"Projekt '{name}' gelöscht."})
+        else:
+            return jsonify({"status": "error", "message": "Projekt nicht gefunden."}), 404
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 ########################################################################################################
 #       Upload Image to UI
 ########################################################################################################

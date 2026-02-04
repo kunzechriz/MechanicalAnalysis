@@ -991,44 +991,96 @@ async function loadAndShowProjects() {
     const btnCard = document.getElementById('btn-open-project');
     const wrapper = document.getElementById('saved-projects-wrapper');
     const listContainer = document.getElementById('project-list');
+
     btnCard.style.display = 'none';
     wrapper.style.display = 'block';
+
     listContainer.innerHTML = "<p style='font-size:0.9em; opacity:0.6; padding:10px;'>Lade...</p>";
+
     try {
         const res = await fetch('/api/projects');
         const data = await res.json();
         listContainer.innerHTML = "";
+
         if (data.status === 'success') {
             if (data.projects.length === 0) {
                 listContainer.innerHTML = "<p style='font-size:0.9em; padding:10px;'>Keine Projekte gefunden.</p>";
                 return;
             }
+
             data.projects.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
             data.projects.forEach(proj => {
                 const item = document.createElement('div');
+                item.style.display = "flex";
+                item.style.justifyContent = "space-between";
+                item.style.alignItems = "center";
                 item.style.padding = "15px";
+                item.style.marginBottom = "10px";
                 item.style.background = "#f8fafc";
                 item.style.borderRadius = "15px";
                 item.style.cursor = "pointer";
-                item.style.display = "flex";
-                item.style.flexDirection = "column";
-                item.style.gap = "2px";
                 item.style.transition = "transform 0.1s, background 0.1s";
+
                 item.onmouseenter = () => { item.style.background = "#ffffff"; item.style.boxShadow = "0 4px 6px rgba(0,0,0,0.05)"; };
                 item.onmouseleave = () => { item.style.background = "#f8fafc"; item.style.boxShadow = "none"; };
+
+                const infoDiv = document.createElement('div');
+                infoDiv.style.flexGrow = "1";
                 const dateObj = new Date(proj.timestamp);
                 const dateStr = dateObj.toLocaleDateString('de-DE');
-                item.innerHTML = `
+
+                infoDiv.innerHTML = `
                     <div style="font-weight: 700; font-size: 1.1em; color: #f59e0b;">${proj.name}</div>
                     <div style="font-size: 0.85em; color: #64748b;">${proj.width}×${proj.height} Grid</div>
                     <div style="font-size: 0.75em; color: #94a3b8;">${dateStr}</div>
                 `;
-                item.onclick = () => restoreProject(proj);
+
+                infoDiv.onclick = () => restoreProject(proj);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.innerHTML = "X";
+                deleteBtn.className = "glass-btn-small danger";
+                deleteBtn.style.width = "40px";
+                deleteBtn.style.height = "40px";
+                deleteBtn.style.justifyContent = "center";
+                deleteBtn.style.marginLeft = "10px";
+                deleteBtn.title = "Löschen";
+
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if(confirm(`Möchtest du das Projekt '${proj.name}' wirklich löschen?`)) {
+                        deleteProject(proj.name);
+                    }
+                };
+
+                item.appendChild(infoDiv);
+                item.appendChild(deleteBtn);
                 listContainer.appendChild(item);
             });
         }
     } catch (e) {
         listContainer.innerHTML = "<p style='color:red; font-size:0.8em; padding:10px;'>Fehler beim Laden.</p>";
+        console.error(e);
+    }
+}
+
+async function deleteProject(name) {
+    try {
+        const response = await fetch('/api/delete_project', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: name })
+        });
+
+        const result = await response.json();
+        if (result.status === 'success') {
+            loadAndShowProjects();
+        } else {
+            alert("Fehler: " + result.message);
+        }
+    } catch (e) {
+        alert("Netzwerkfehler beim Löschen.");
     }
 }
 

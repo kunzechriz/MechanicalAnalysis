@@ -302,6 +302,21 @@ class Structure2D:
         return f"Projekt '{name}' gespeichert."
 
     @staticmethod
+    def delete_project_from_db(name, db_filename='projects.json'):
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        db_path = os.path.join(base_dir, db_filename)
+
+        if not os.path.exists(db_path):
+            return False
+
+        db = TinyDB(db_path)
+        Project = Query()
+
+        deleted_ids = db.remove(Project.name == name)
+
+        return len(deleted_ids) > 0
+
+    @staticmethod
     def get_all_projects(db_filename='projects.json'):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         db_path = os.path.join(base_dir, db_filename)
