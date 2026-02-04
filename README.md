@@ -1,10 +1,17 @@
 # Mechanical Analysis - Web-Based FEM & Topology Optimization
 
-## Online Testverison (nach öffnen des Links bis zu 1min warten):
-https://mechanicalanalysis.onrender.com
+
+> **Online Live-Demo** 
+> 
+> UI direkt im Browser testen:  
+> [**https://mechanicalanalysis.onrender.com**](https://mechanicalanalysis.onrender.com)
+> 
+> *Hinweis: Da der Server in der Free-Tier läuft, kann der erste Start nach Inaktivität bis zu 60 Sekunden dauern.*
+
+
+
 
 Dieses Repository enthält die Dokumentation und den Quellcode für das Projekt **"Mechanical Analysis"**. Die Webanwendung ermöglicht die interaktive Erstellung, statische Analyse und Topologieoptimierung von mechanischen Strukturen in 2D und 3D.
-
 ## Inhaltsverzeichnis
 1. [Installation](#installation)
 2. [Ausführung](#ausführung)
