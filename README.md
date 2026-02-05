@@ -6,7 +6,7 @@
 > UI direkt im Browser testen:  
 > [**https://mechanicalanalysis.onrender.com**](https://mechanicalanalysis.onrender.com)
 > 
-> *Hinweis: Da der Server in der Free-Tier läuft, kann der erste Start nach Inaktivität bis zu 60 Sekunden dauern.*
+> *Hinweis: Da der Server in der Free-Tier läuft, kann der erste Start nach Inaktivität bis zu 60 Sekunden dauern. Zudem ist die Performance stark eingeschränkt*
 
 
 
