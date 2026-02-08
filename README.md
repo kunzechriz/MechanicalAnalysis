@@ -42,6 +42,8 @@ Stellen Sie sicher, dass folgende Software installiert ist:
 
    ```bash
    python -m venv .venv
+   # Unter Mac/Linux: python3 -m venv .venv
+   
    # Aktivieren (Windows): .\venv\Scripts\activate
    # Aktivieren (Mac/Linux): source venv/bin/activate
 
