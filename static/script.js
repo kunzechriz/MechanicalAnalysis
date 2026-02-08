@@ -47,10 +47,6 @@ sliderForce.addEventListener('input', (e) => { document.getElementById('val-forc
 
 canvas.addEventListener('mousedown', (e) => {
 
-    if (isShowingResult) {
-        setBaseCase();
-        return;
-    }
     handleCanvasClick(e);
 });
 
@@ -135,10 +131,15 @@ function handleCanvasClick(e) {
     const xIdx = Math.round((mouseX - offsetX) / spacing);
     const yIdx = Math.round((mouseY - offsetY) / spacing);
 
+    if (isShowingResult) {
+        convertResultToEditMode();
+    }
+
     if (xIdx >= 0 && xIdx < gridState.nodesX && yIdx >= 0 && yIdx < gridState.nodesY) {
         if (gridState.activeMap && !gridState.activeMap.has(`${xIdx},${yIdx}`)) {
             return;
         }
+
         applyTool(xIdx, yIdx);
         updateCanvas();
     }
@@ -147,6 +148,7 @@ function handleCanvasClick(e) {
 function applyTool(x, y) {
     const key = `${x},${y}`;
     const tool = toolSelect.value;
+
     if (tool === 'fixed' || tool === 'roller') {
         gridState.supports[key] = tool;
         delete gridState.forces[key];
@@ -156,6 +158,19 @@ function applyTool(x, y) {
     } else if (tool === 'eraser') {
         delete gridState.supports[key];
         delete gridState.forces[key];
+
+        if (!gridState.activeMap) {
+            gridState.activeMap = new Set();
+            for(let i=0; i<gridState.nodesX; i++) {
+                for(let j=0; j<gridState.nodesY; j++) {
+                    gridState.activeMap.add(`${i},${j}`);
+                }
+            }
+            importedActiveMap = new Set(gridState.activeMap);
+        }
+        if (gridState.activeMap) {
+            gridState.activeMap.delete(key);
+        }
     }
 }
 
@@ -380,7 +395,8 @@ async function triggerPythonSolver() {
     const logInterval = setInterval(async () => {
         try {
             const res = await fetch('/api/logs');
-            if(res.ok) {
+            if(res.ok) {    // A. Koordinaten berechnen
+
                 const data = await res.json();
                 if (data.logs && data.logs.trim() !== "") {
                     const lines = data.logs.split('\n');
@@ -437,7 +453,8 @@ async function triggerPythonSolver() {
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
             let parts = buffer.split("\n");
-            buffer = parts.pop();
+            buffer = parts.pop();    // A. Koordinaten berechnen
+
 
             for (let part of parts) {
                 if (!part.trim()) continue;
@@ -1282,4 +1299,26 @@ function confirmUpload() {
     updateCanvas();
     document.getElementById('terminal-content').innerHTML += `<div style='color:#10b981;'>Geometrie (${gridState.nodesX}x${gridState.nodesY}) übernommen.</div>`;
     tempImportData = null;
+}
+
+function convertResultToEditMode() {
+    if (!lastOptimizedNodes || lastOptimizedNodes.length === 0) return;
+
+    console.log("Wandle Ergebnis in bearbeitbare Struktur um...");
+
+    const newMap = new Set();
+
+    lastOptimizedNodes.forEach(n => {
+
+        if (n.active) {
+            newMap.add(`${n.x},${n.z}`);
+        }
+    });
+    if (newMap.size > 0) {
+        gridState.activeMap = newMap;
+        importedActiveMap = new Set(newMap);
+    }
+
+    isShowingResult = false;
+    lastOptimizedNodes = null;
 }
