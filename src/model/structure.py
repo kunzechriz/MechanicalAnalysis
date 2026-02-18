@@ -6,7 +6,7 @@ from scipy.sparse import lil_matrix #lösung für performance auf 3D
 from scipy.sparse.linalg import spsolve
 
 from .node import Node
-from .element import Element, Spring2D, Spring3D
+from .spring import Element, Spring2D, Spring3D
 from ..analysis.graph_utils import check_connectivity
 ########################################################################################################
 #       Baue Struktur aus Knoten und Federn auf

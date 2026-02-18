@@ -702,7 +702,7 @@ async function triggerKinematicAnalysis() {
         });
         const result = await response.json();
         if (result.status === 'done') {
-            term.innerHTML += `<br><div style='color:#007aff;'>Max. Verformung: ${result.max_disp.toFixed(4)}</div>`;
+            term.innerHTML += `<br><div style='color:#007aff;'>Verformungsanalyse abgeschlossen</div>`;
             term.scrollTop = term.scrollHeight;
             renderDeformation(result.nodes, result.max_disp);
         } else {

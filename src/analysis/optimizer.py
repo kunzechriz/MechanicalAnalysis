@@ -143,7 +143,18 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
     while True:
         current_active = [n for n in structure.nodes if n.active]
         current_count = len(current_active)
-        yield structure, False, f"Iteration {iteration}: {current_count} / {target_count} Nodes"
+        total_to_remove = start_count - target_count
+        if total_to_remove > 0:
+            progress = (start_count - current_count) / total_to_remove
+        else:
+            progress = 1.0
+        progress = max(0.0, min(1.0, progress))
+
+        bar_length = 20
+        filled_length = int(round(bar_length * progress))
+        bar = 'x' * filled_length + '-' * (bar_length - filled_length)
+        status_msg = f"[{bar}] {current_count}/{target_count} Nodes"
+        yield structure, False, status_msg
         time.sleep(0.05)
 
         if current_count <= target_count:
