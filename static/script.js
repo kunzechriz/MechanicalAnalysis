@@ -395,7 +395,7 @@ async function triggerPythonSolver() {
     const logInterval = setInterval(async () => {
         try {
             const res = await fetch('/api/logs');
-            if(res.ok) {    // A. Koordinaten berechnen
+            if(res.ok) {
 
                 const data = await res.json();
                 if (data.logs && data.logs.trim() !== "") {
@@ -417,6 +417,13 @@ async function triggerPythonSolver() {
         term.innerHTML += `<div style='color:#007aff'>Starte Optimierung auf bestehender Struktur (${activeIndices.length} Knoten)...</div>`;
     }
 
+    const isSymmetric = checkSymmetry();
+    if (isSymmetric) {
+        term.innerHTML += `<div style='color:#a855f7'>Symmetrie-Filter AKTIV</div>`;
+    } else {
+        term.innerHTML += `<div style='color:#f59e0b'>Symmetrie-Filter DEAKTIVIERT</div>`;
+    }
+
     const payload = {
         width: gridState.nodesX,
         height: gridState.nodesY,
@@ -426,6 +433,7 @@ async function triggerPythonSolver() {
         supports: gridState.supports,
         removal_rate: qualityRate,
         active_nodes: activeIndices,
+        symmetry_enabled: isSymmetric,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
             acc[key] = { fy: currentForce };
             return acc;
@@ -1321,4 +1329,41 @@ function convertResultToEditMode() {
 
     isShowingResult = false;
     lastOptimizedNodes = null;
+}
+//-----------------------------------------------------------------------------------------------
+// Check Symmetry
+//-----------------------------------------------------------------------------------------------
+function checkSymmetry() {
+    const w = gridState.nodesX;
+
+    if (gridState.activeMap) {
+        for (let key of gridState.activeMap) {
+            const [x, y] = key.split(',').map(Number);
+            const mirroredX = w - 1 - x;
+            if (!gridState.activeMap.has(`${mirroredX},${y}`)) return false;
+        }
+    }
+
+    for (let key in gridState.supports) {
+        const [x, y] = key.split(',').map(Number);
+        const mirroredX = w - 1 - x;
+        const mirroredKey = `${mirroredX},${y}`;
+
+        if (!gridState.supports[mirroredKey]) return false;
+    }
+
+    for (let key in gridState.forces) {
+        const [x, y] = key.split(',').map(Number);
+        const mirroredX = w - 1 - x;
+        const mirroredKey = `${mirroredX},${y}`;
+
+        if (!gridState.forces[mirroredKey]) {
+            if (Math.abs(x - mirroredX) <= 1) {
+                continue;
+            }
+            return false;
+        }
+    }
+
+    return true;
 }

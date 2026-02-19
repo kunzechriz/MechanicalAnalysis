@@ -128,7 +128,7 @@ def verdicke_struktur(structure):
             structure.nodes[nid].active = True
 
 
-def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
+def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01, use_symmetry=True):
     initial_active = [n for n in structure.nodes if n.active]
     start_count = len(initial_active)
     target_count = int(start_count * target_mass_ratio)
@@ -194,7 +194,7 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
                 current_energies[nid] = val
         history_energies = current_energies.copy()
 
-        if hasattr(structure, 'width'):
+        if hasattr(structure, 'width') and use_symmetry:
             current_energies = symmetrize_energies(structure, current_energies, structure.width)
 
         current_energies = filter_energies(structure, current_energies)
@@ -208,7 +208,7 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01):
             if nid in visited: continue
 
             pair = [nid]
-            if width > 0:
+            if width > 0 and use_symmetry:
                 z = nid // width
                 x = nid % width
                 x_mirror = width - 1 - x

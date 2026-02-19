@@ -50,6 +50,7 @@ def get_logs():
 def optimize():
     try:
         data = request.json
+        use_symmetry = data.get('symmetry_enabled', True)
         width = data.get('width', 20)
         height = data.get('height', 10)
         mode = data.get('mode', '2d')
@@ -111,7 +112,7 @@ def optimize():
                 if node_id < len(s.nodes):
                     s.last_aufbringen(node_id, 0, fy)
         def generate():
-            gen = run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=removal_rate)
+            gen = run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=removal_rate, use_symmetry=use_symmetry)
             for step_struct, is_done, msg in gen:
                 nodes_data = []
                 for n in step_struct.nodes:
