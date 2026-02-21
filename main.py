@@ -6,6 +6,7 @@ import numpy as np
 
 from src.model.structure import Structure2D, Structure3D
 from src.analysis.optimizer import run_optimization
+from src.visualization.create_report import report_bp
 ########################################################################################################
 #       Initialisiere Flask Server
 ########################################################################################################
@@ -264,6 +265,9 @@ def delete_project():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+app.register_blueprint(report_bp)
 ########################################################################################################
 #       Upload Image to UI
 ########################################################################################################

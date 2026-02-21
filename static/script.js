@@ -726,10 +726,14 @@ async function triggerKinematicAnalysis() {
 function renderDeformation(nodes, maxDisp) {
     const { spacing, offsetX, offsetY } = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const visualScale = (maxDisp > 0) ? (canvas.height * 0.15) / maxDisp : 0;
-    function getHeatmapColor(value, max) {
-        if (max === 0) return 'hsl(240, 100%, 50%)';
-        let percent = value / max;
+    const visualScale = 0.001;
+    const ABSOLUTE_MAX_DISP = 30000;
+
+    function getHeatmapColor(value) {
+        if (ABSOLUTE_MAX_DISP === 0) return 'hsl(240, 100%, 50%)';
+
+        let percent = Math.min(value / ABSOLUTE_MAX_DISP, 1.0);
+
         let hue = 240 * (1 - percent);
         return `hsl(${hue}, 100%, 50%)`;
     }
@@ -1366,4 +1370,60 @@ function checkSymmetry() {
     }
 
     return true;
+}
+
+//-----------------------------------------------------------------------------------------------
+// Create Report
+//-----------------------------------------------------------------------------------------------
+async function downloadPythonReport() {
+    if (gridState.mode === '3d') {
+        alert("Report nur für 2D verfügbar.");
+        return;
+    }
+
+    const term = document.getElementById('terminal-content');
+    term.innerHTML += "<div style='color:#a855f7'>Server generiert PDF-Report...</div>";
+
+    // Wir nehmen an, der Startzustand war das volle Rechteck, wenn wir es nicht anders wissen
+    const initialCount = gridState.nodesX * gridState.nodesY;
+    const currentForce = parseFloat(document.getElementById('slider-force').value);
+
+    const payload = {
+        width: gridState.nodesX,
+        height: gridState.nodesY,
+        initial_count: initialCount,
+        supports: gridState.supports,
+        active_nodes: getActiveIndices(),
+        forces: Object.keys(gridState.forces).reduce((acc, key) => {
+            acc[key] = { fy: currentForce };
+            return acc;
+        }, {})
+    };
+
+    try {
+        const response = await fetch('/api/report', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error("Fehler beim Generieren des Reports");
+
+        // Wir bekommen eine Datei (Blob) vom Server zurück!
+        const blob = await response.blob();
+
+        // Unsichtbaren Link erstellen, um den Download im Browser zu erzwingen
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = "Topologie_Report.pdf";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        term.innerHTML += "<div style='color:#10b981'>PDF erfolgreich heruntergeladen.</div>";
+
+    } catch (e) {
+        term.innerHTML += `<div style='color:#ef4444'>Fehler: ${e.message}</div>`;
+    }
 }
