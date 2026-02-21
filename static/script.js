@@ -29,7 +29,7 @@ let isShowingResult = false;
 sliderDepth.addEventListener('input', (e) => {
     document.getElementById('val-depth').innerText = e.target.value;
     gridState.nodesZ = parseInt(e.target.value);
-    if(gridState.mode === '3d') setBaseCase();
+    if (gridState.mode === '3d') setBaseCase();
 });
 
 sliderW.addEventListener('input', (e) => {
@@ -42,8 +42,12 @@ sliderH.addEventListener('input', (e) => {
     importedActiveMap = null;
     setBaseCase();
 });
-sliderMass.addEventListener('input', (e) => { document.getElementById('val-mass').innerText = e.target.value; });
-sliderForce.addEventListener('input', (e) => { document.getElementById('val-force').innerText = e.target.value; });
+sliderMass.addEventListener('input', (e) => {
+    document.getElementById('val-mass').innerText = e.target.value;
+});
+sliderForce.addEventListener('input', (e) => {
+    document.getElementById('val-force').innerText = e.target.value;
+});
 
 canvas.addEventListener('mousedown', (e) => {
 
@@ -67,8 +71,8 @@ function setBaseCase() {
     const term = document.getElementById('terminal-content');
     const statusDot = document.getElementById('status-dot');
 
-    if(term) term.innerHTML = "System reset. Base case applied.";
-    if(statusDot) statusDot.classList.remove('active');
+    if (term) term.innerHTML = "System reset. Base case applied.";
+    if (statusDot) statusDot.classList.remove('active');
 
     gridState.nodesX = parseInt(sliderW.value);
     gridState.nodesY = parseInt(sliderH.value);
@@ -91,7 +95,7 @@ function setBaseCase() {
 
     const topMiddleX = Math.floor(gridState.nodesX / 2);
     const topMiddle = `${topMiddleX},0`;
-    gridState.forces[topMiddle] = { fy: 1000 };
+    gridState.forces[topMiddle] = {fy: 1000};
 
     if (gridState.mode === '3d') {
         if (!renderer3D) initThreeJS();
@@ -111,10 +115,10 @@ function generateBase3DNodes() {
     const w = gridState.nodesX;
     const h = gridState.nodesY;
     const d = gridState.nodesZ;
-    for(let y = 0; y < d; y++) {
-        for(let z = 0; z < h; z++) {
-            for(let x = 0; x < w; x++) {
-                nodes.push({ x: x, z: z, y: y, active: true });
+    for (let y = 0; y < d; y++) {
+        for (let z = 0; z < h; z++) {
+            for (let x = 0; x < w; x++) {
+                nodes.push({x: x, z: z, y: y, active: true});
             }
         }
     }
@@ -125,7 +129,7 @@ function handleCanvasClick(e) {
     if (gridState.mode === '3d') return;
 
     const rect = canvas.getBoundingClientRect();
-    const { spacing, offsetX, offsetY } = calculateGridMetrics();
+    const {spacing, offsetX, offsetY} = calculateGridMetrics();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     const xIdx = Math.round((mouseX - offsetX) / spacing);
@@ -153,7 +157,7 @@ function applyTool(x, y) {
         gridState.supports[key] = tool;
         delete gridState.forces[key];
     } else if (tool === 'force') {
-        gridState.forces[key] = { fy: 1000 };
+        gridState.forces[key] = {fy: 1000};
         delete gridState.supports[key];
     } else if (tool === 'eraser') {
         delete gridState.supports[key];
@@ -161,8 +165,8 @@ function applyTool(x, y) {
 
         if (!gridState.activeMap) {
             gridState.activeMap = new Set();
-            for(let i=0; i<gridState.nodesX; i++) {
-                for(let j=0; j<gridState.nodesY; j++) {
+            for (let i = 0; i < gridState.nodesX; i++) {
+                for (let j = 0; j < gridState.nodesY; j++) {
                     gridState.activeMap.add(`${i},${j}`);
                 }
             }
@@ -184,11 +188,11 @@ function calculateGridMetrics() {
     );
     const offsetX = (canvas.width - (gridState.nodesX - 1) * spacing) / 2;
     const offsetY = (canvas.height - (gridState.nodesY - 1) * spacing) / 2;
-    return { spacing, offsetX, offsetY };
+    return {spacing, offsetX, offsetY};
 }
 
 function updateCanvas() {
-    const { spacing, offsetX, offsetY } = calculateGridMetrics();
+    const {spacing, offsetX, offsetY} = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 1;
@@ -203,23 +207,23 @@ function updateCanvas() {
             const posY = offsetY + y * spacing;
 
             if (x < gridState.nodesX - 1) {
-                const rightExists = !gridState.activeMap || gridState.activeMap.has(`${x+1},${y}`);
+                const rightExists = !gridState.activeMap || gridState.activeMap.has(`${x + 1},${y}`);
                 if (rightExists) {
                     ctx.moveTo(posX, posY);
                     ctx.lineTo(posX + spacing, posY);
                 }
             }
             if (y < gridState.nodesY - 1) {
-                const downExists = !gridState.activeMap || gridState.activeMap.has(`${x},${y+1}`);
+                const downExists = !gridState.activeMap || gridState.activeMap.has(`${x},${y + 1}`);
                 if (downExists) {
                     ctx.moveTo(posX, posY);
                     ctx.lineTo(posX, posY + spacing);
                 }
             }
             if (x < gridState.nodesX - 1 && y < gridState.nodesY - 1) {
-                const rExists = !gridState.activeMap || gridState.activeMap.has(`${x+1},${y}`);
-                const dExists = !gridState.activeMap || gridState.activeMap.has(`${x},${y+1}`);
-                const diagExists = !gridState.activeMap || gridState.activeMap.has(`${x+1},${y+1}`);
+                const rExists = !gridState.activeMap || gridState.activeMap.has(`${x + 1},${y}`);
+                const dExists = !gridState.activeMap || gridState.activeMap.has(`${x},${y + 1}`);
+                const diagExists = !gridState.activeMap || gridState.activeMap.has(`${x + 1},${y + 1}`);
 
                 if (rExists && dExists && diagExists) {
                     ctx.moveTo(posX, posY);
@@ -284,11 +288,11 @@ function renderOptimizedStructure(nodes) {
 }
 
 function render2DCanvas(nodes) {
-    const { spacing, offsetX, offsetY } = calculateGridMetrics();
+    const {spacing, offsetX, offsetY} = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const activeMap = new Set();
     nodes.forEach(n => {
-        if(n.active) activeMap.add(`${n.x},${n.z}`);
+        if (n.active) activeMap.add(`${n.x},${n.z}`);
     });
     ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 1;
@@ -298,23 +302,23 @@ function render2DCanvas(nodes) {
             const posX = offsetX + x * spacing;
             const posY = offsetY + y * spacing;
             if (x < gridState.nodesX - 1) {
-                if (activeMap.has(`${x},${y}`) && activeMap.has(`${x+1},${y}`)) {
+                if (activeMap.has(`${x},${y}`) && activeMap.has(`${x + 1},${y}`)) {
                     ctx.moveTo(posX, posY);
                     ctx.lineTo(posX + spacing, posY);
                 }
             }
             if (y < gridState.nodesY - 1) {
-                if (activeMap.has(`${x},${y}`) && activeMap.has(`${x},${y+1}`)) {
+                if (activeMap.has(`${x},${y}`) && activeMap.has(`${x},${y + 1}`)) {
                     ctx.moveTo(posX, posY);
                     ctx.lineTo(posX, posY + spacing);
                 }
             }
             if (x < gridState.nodesX - 1 && y < gridState.nodesY - 1) {
-                 if (activeMap.has(`${x},${y}`) && activeMap.has(`${x+1},${y+1}`)) {
+                if (activeMap.has(`${x},${y}`) && activeMap.has(`${x + 1},${y + 1}`)) {
                     ctx.moveTo(posX, posY);
                     ctx.lineTo(posX + spacing, posY + spacing);
                 }
-                if (activeMap.has(`${x+1},${y}`) && activeMap.has(`${x},${y+1}`)) {
+                if (activeMap.has(`${x + 1},${y}`) && activeMap.has(`${x},${y + 1}`)) {
                     ctx.moveTo(posX + spacing, posY);
                     ctx.lineTo(posX, posY + spacing);
                 }
@@ -344,7 +348,7 @@ function drawSymbol(x, y, type) {
         ctx.lineTo(x - 8, y + 12);
         ctx.lineTo(x + 8, y + 12);
     } else {
-        ctx.arc(x, y + 6, 6, 0, 2*Math.PI);
+        ctx.arc(x, y + 6, 6, 0, 2 * Math.PI);
     }
     ctx.fill();
 }
@@ -380,6 +384,9 @@ function switchView(viewName) {
     }
 }
 
+let finalRawNodes = null;
+let finalBeautifiedNodes = null;
+
 async function triggerPythonSolver() {
     const term = document.getElementById('terminal-content');
     const statusDot = document.getElementById('status-dot');
@@ -395,25 +402,26 @@ async function triggerPythonSolver() {
     const logInterval = setInterval(async () => {
         try {
             const res = await fetch('/api/logs');
-            if(res.ok) {
+            if (res.ok) {
 
                 const data = await res.json();
                 if (data.logs && data.logs.trim() !== "") {
                     const lines = data.logs.split('\n');
                     lines.forEach(line => {
-                        if(line) term.innerHTML += `<div>${line}</div>`;
+                        if (line) term.innerHTML += `<div>${line}</div>`;
                     });
                     term.scrollTop = term.scrollHeight;
                 }
             }
-        } catch(e) { }
+        } catch (e) {
+        }
     }, 500);
 
     const currentForce = parseFloat(sliderForce.value);
     const qualityRate = parseFloat(document.getElementById('select-quality').value);
 
     const activeIndices = getActiveIndices();
-    if(activeIndices && activeIndices.length > 0) {
+    if (activeIndices && activeIndices.length > 0) {
         term.innerHTML += `<div style='color:#007aff'>Starte Optimierung auf bestehender Struktur (${activeIndices.length} Knoten)...</div>`;
     }
 
@@ -423,6 +431,8 @@ async function triggerPythonSolver() {
     } else {
         term.innerHTML += `<div style='color:#f59e0b'>Symmetrie-Filter DEAKTIVIERT</div>`;
     }
+
+    const applyBeautify = document.getElementById('checkbox-beautify').checked;
 
     const payload = {
         width: gridState.nodesX,
@@ -434,8 +444,9 @@ async function triggerPythonSolver() {
         removal_rate: qualityRate,
         active_nodes: activeIndices,
         symmetry_enabled: isSymmetric,
+        beautify_enabled: applyBeautify,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
-            acc[key] = { fy: currentForce };
+            acc[key] = {fy: currentForce};
             return acc;
         }, {})
     };
@@ -455,32 +466,59 @@ async function triggerPythonSolver() {
         let buffer = "";
 
         while (true) {
-            const { done, value } = await reader.read();
+            const {done, value} = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
+            const chunk = decoder.decode(value, {stream: true});
             buffer += chunk;
             let parts = buffer.split("\n");
-            buffer = parts.pop();    // A. Koordinaten berechnen
+            buffer = parts.pop();
 
 
             for (let part of parts) {
                 if (!part.trim()) continue;
                 try {
                     const result = JSON.parse(part);
+
                     if (result.message) {
                         term.innerHTML += `<div>${result.message}</div>`;
                         term.scrollTop = term.scrollHeight;
                     }
+
                     if (result.nodes) {
                         isShowingResult = true;
-                        lastOptimizedNodes = result.nodes;
-                        renderOptimizedStructure(result.nodes);
+
+                        if (result.status === "finished" && result.raw_nodes) {
+                            finalBeautifiedNodes = result.nodes;
+                            finalRawNodes = result.raw_nodes;
+
+                            const applyBeauty = document.getElementById('checkbox-beautify').checked;
+                            lastOptimizedNodes = applyBeauty ? finalBeautifiedNodes : finalRawNodes;
+                        } else {
+                            lastOptimizedNodes = result.nodes;
+                        }
+                        renderOptimizedStructure(lastOptimizedNodes);
+
+                        optimizationHistory.push(lastOptimizedNodes);
+
+                        const slider = document.getElementById('playback-slider');
+                        if (slider) {
+                            slider.max = optimizationHistory.length - 1;
+                            const label = document.getElementById('playback-label');
+                            if (label) label.innerText = `Iteration: ${currentHistoryIndex + 1} / ${optimizationHistory.length}`;
+                        }
+
+                        if (isLivePlaying) {
+                            currentHistoryIndex = optimizationHistory.length - 1;
+                            applyFrame(currentHistoryIndex);
+                        }
                     }
+
                     if (result.status === "finished") {
                         statusDot.classList.remove('active');
                     }
-                } catch (e) {}
+                } catch (e) {
+                }
             }
         }
     } catch (err) {
@@ -498,6 +536,27 @@ async function triggerPythonSolver() {
     }
 }
 
+
+window.toggleBeautify = function() {
+    const applyBeauty = document.getElementById('checkbox-beautify').checked;
+
+    if (!finalRawNodes || !finalBeautifiedNodes) {
+        console.warn("Toggle abgebrochen: Es fehlen noch Daten vom Server.");
+        return;
+    }
+
+    lastOptimizedNodes = applyBeauty ? finalBeautifiedNodes : finalRawNodes;
+
+    renderOptimizedStructure(lastOptimizedNodes);
+
+    const term = document.getElementById('terminal-content');
+    if (term) {
+        term.innerHTML += `<div style="color:#a855f7">Verschönerung ${applyBeauty ? 'aktiviert' : 'deaktiviert'}.</div>`;
+        term.scrollTop = term.scrollHeight;
+    }
+};
+
+
 function toggleModeUI() {
     const selectMode = document.getElementById('select-mode');
     const mode = selectMode.value;
@@ -513,11 +572,11 @@ function toggleModeUI() {
         gridState.nodesZ = parseInt(document.getElementById('slider-depth').value);
 
         depthGroup.style.display = 'block';
-        if(analysisWrapper) analysisWrapper.style.display = 'none';
+        if (analysisWrapper) analysisWrapper.style.display = 'none';
         qualitySelect.value = "0.02";
         canvas2D.style.display = 'none';
         container3D.style.display = 'block';
-        if(btnExportSTL) btnExportSTL.style.display = 'block';
+        if (btnExportSTL) btnExportSTL.style.display = 'block';
 
         document.getElementById('terminal-content').innerHTML =
             "<div style='color:#007aff'>3D Modus. (Nur Topologieoptimierung möglich)</div>";
@@ -527,8 +586,8 @@ function toggleModeUI() {
         gridState.nodesZ = 1;
         qualitySelect.value = "0.01";
         depthGroup.style.display = 'none';
-        if(analysisWrapper) analysisWrapper.style.display = 'block';
-        if(btnExportSTL) btnExportSTL.style.display = 'none';
+        if (analysisWrapper) analysisWrapper.style.display = 'block';
+        if (btnExportSTL) btnExportSTL.style.display = 'none';
 
         canvas2D.style.display = 'block';
         container3D.style.display = 'none';
@@ -537,7 +596,7 @@ function toggleModeUI() {
 }
 
 let renderer3D, scene3D, camera3D, controls3D;
-let threeObjects = { nodes: null, lines: null, supports: [], forces: [] };
+let threeObjects = {nodes: null, lines: null, supports: [], forces: []};
 
 function initThreeJS() {
     const container = document.getElementById('three-container');
@@ -548,7 +607,7 @@ function initThreeJS() {
         scene3D.background = new THREE.Color(0xffffff);
         camera3D = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
         camera3D.position.set(40, 40, 60);
-        renderer3D = new THREE.WebGLRenderer({ antialias: true });
+        renderer3D = new THREE.WebGLRenderer({antialias: true});
         renderer3D.setSize(width, height);
         renderer3D.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer3D.domElement);
@@ -580,7 +639,7 @@ function renderThreeJSScene(nodes) {
     const offsetY_Depth = depth / 2;
 
     const sphereGeo = new THREE.SphereGeometry(0.3, 16, 16);
-    const sphereMat = new THREE.MeshPhongMaterial({ color: 0x3b82f6 });
+    const sphereMat = new THREE.MeshPhongMaterial({color: 0x3b82f6});
     const nodeMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, activeNodes.length);
     const dummy = new THREE.Object3D();
     const activeCoords = new Set();
@@ -599,6 +658,7 @@ function renderThreeJSScene(nodes) {
     threeObjects.nodes = nodeMesh;
 
     const linePoints = [];
+
     function checkAndAddLine(n, dx, dz, dy) {
         const nx = n.x + dx;
         const nz = n.z + dz;
@@ -608,6 +668,7 @@ function renderThreeJSScene(nodes) {
             linePoints.push(nx - offsetX, -(nz - offsetZ), ny - offsetY_Depth);
         }
     }
+
     activeNodes.forEach(n => {
         checkAndAddLine(n, 1, 0, 0);
         checkAndAddLine(n, 0, 1, 0);
@@ -619,7 +680,7 @@ function renderThreeJSScene(nodes) {
     if (linePoints.length > 0) {
         const lineGeo = new THREE.BufferGeometry();
         lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePoints, 3));
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.4 });
+        const lineMat = new THREE.LineBasicMaterial({color: 0x94a3b8, transparent: true, opacity: 0.4});
         const lineSegments = new THREE.LineSegments(lineGeo, lineMat);
         scene3D.add(lineSegments);
         threeObjects.lines = lineSegments;
@@ -632,7 +693,7 @@ function renderThreeJSScene(nodes) {
             const py = -(gz - offsetZ);
             const pz = y - offsetY_Depth;
             const boxGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-            const boxMat = new THREE.MeshLambertMaterial({ color: 0xef4444 });
+            const boxMat = new THREE.MeshLambertMaterial({color: 0xef4444});
             const supportMesh = new THREE.Mesh(boxGeo, boxMat);
             supportMesh.position.set(px, py - 0.5, pz);
             scene3D.add(supportMesh);
@@ -662,8 +723,8 @@ function renderThreeJSScene(nodes) {
 
 function animate3D() {
     requestAnimationFrame(animate3D);
-    if(controls3D) controls3D.update();
-    if(renderer3D && scene3D && camera3D) renderer3D.render(scene3D, camera3D);
+    if (controls3D) controls3D.update();
+    if (renderer3D && scene3D && camera3D) renderer3D.render(scene3D, camera3D);
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -697,7 +758,7 @@ async function triggerKinematicAnalysis() {
         supports: gridState.supports,
         active_nodes: activeIndices,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
-            acc[key] = { fy: currentForce };
+            acc[key] = {fy: currentForce};
             return acc;
         }, {})
     };
@@ -724,7 +785,7 @@ async function triggerKinematicAnalysis() {
 }
 
 function renderDeformation(nodes, maxDisp) {
-    const { spacing, offsetX, offsetY } = calculateGridMetrics();
+    const {spacing, offsetX, offsetY} = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const visualScale = 0.001;
     const ABSOLUTE_MAX_DISP = 30000;
@@ -737,6 +798,7 @@ function renderDeformation(nodes, maxDisp) {
         let hue = 240 * (1 - percent);
         return `hsl(${hue}, 100%, 50%)`;
     }
+
     const width = gridState.nodesX;
     const nodeMap = new Map();
     nodes.forEach(n => nodeMap.set(n.id, n));
@@ -801,6 +863,7 @@ function renderDeformation(nodes, maxDisp) {
 }
 
 let isShowingForces = false;
+
 async function triggerForceAnalysis() {
     const term = document.getElementById('terminal-content');
     if (gridState.mode === '3d') {
@@ -829,7 +892,7 @@ async function triggerForceAnalysis() {
         supports: gridState.supports,
         active_nodes: activeIndices,
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
-            acc[key] = { fy: currentForce };
+            acc[key] = {fy: currentForce};
             return acc;
         }, {})
     };
@@ -853,7 +916,7 @@ async function triggerForceAnalysis() {
 }
 
 function renderForceHeatmap(nodes, elements) {
-    const { spacing, offsetX, offsetY } = calculateGridMetrics();
+    const {spacing, offsetX, offsetY} = calculateGridMetrics();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let maxForce = 0;
     elements.forEach(el => {
@@ -956,8 +1019,8 @@ function toggleSaveUI(showInput) {
 function exportCanvasAsPNG() {
     const originalCanvas = document.getElementById('structureCanvas');
     const term = document.getElementById('terminal-content');
-    if(gridState.mode === '3d') {
-        if(!renderer3D) return;
+    if (gridState.mode === '3d') {
+        if (!renderer3D) return;
         const link = document.createElement('a');
         link.download = 'Struktur3D.png';
         renderer3D.render(scene3D, camera3D);
@@ -1010,7 +1073,7 @@ function exportStructureAsSTL() {
     }
     const exportScene = new THREE.Scene();
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const material = new THREE.MeshBasicMaterial({color: 0xffffff});
     const offsetX = gridState.nodesX / 2;
     const offsetZ = gridState.nodesY / 2;
     const depth = gridState.nodesZ;
@@ -1025,8 +1088,8 @@ function exportStructureAsSTL() {
         exportScene.add(mesh);
     });
     const exporter = new THREE.STLExporter();
-    const result = exporter.parse(exportScene, { binary: true });
-    const blob = new Blob([result], { type: 'application/octet-stream' });
+    const result = exporter.parse(exportScene, {binary: true});
+    const blob = new Blob([result], {type: 'application/octet-stream'});
     const link = document.createElement('a');
     link.style.display = 'none';
     document.body.appendChild(link);
@@ -1077,8 +1140,14 @@ async function loadAndShowProjects() {
                 item.style.cursor = "pointer";
                 item.style.transition = "transform 0.1s, background 0.1s";
 
-                item.onmouseenter = () => { item.style.background = "#ffffff"; item.style.boxShadow = "0 4px 6px rgba(0,0,0,0.05)"; };
-                item.onmouseleave = () => { item.style.background = "#f8fafc"; item.style.boxShadow = "none"; };
+                item.onmouseenter = () => {
+                    item.style.background = "#ffffff";
+                    item.style.boxShadow = "0 4px 6px rgba(0,0,0,0.05)";
+                };
+                item.onmouseleave = () => {
+                    item.style.background = "#f8fafc";
+                    item.style.boxShadow = "none";
+                };
 
                 const infoDiv = document.createElement('div');
                 infoDiv.style.flexGrow = "1";
@@ -1104,7 +1173,7 @@ async function loadAndShowProjects() {
 
                 deleteBtn.onclick = (e) => {
                     e.stopPropagation();
-                    if(confirm(`Möchtest du das Projekt '${proj.name}' wirklich löschen?`)) {
+                    if (confirm(`Möchtest du das Projekt '${proj.name}' wirklich löschen?`)) {
                         deleteProject(proj.name);
                     }
                 };
@@ -1125,7 +1194,7 @@ async function deleteProject(name) {
         const response = await fetch('/api/delete_project', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name: name })
+            body: JSON.stringify({name: name})
         });
 
         const result = await response.json();
@@ -1167,17 +1236,17 @@ function restoreProject(proj) {
     if (proj.active_nodes && proj.active_nodes.length > 0) {
         isShowingResult = true;
         if (savedMode === '3d') {
-             const allNodes = generateBase3DNodes();
-             const activeSet = new Set(proj.active_nodes);
-             const w = proj.width;
-             const h = proj.height;
-             allNodes.forEach(n => {
-                 const id = (n.y * h * w) + (n.z * w) + n.x;
-                 n.id = id;
-                 n.active = activeSet.has(id);
-             });
-             lastOptimizedNodes = allNodes;
-             renderOptimizedStructure(allNodes);
+            const allNodes = generateBase3DNodes();
+            const activeSet = new Set(proj.active_nodes);
+            const w = proj.width;
+            const h = proj.height;
+            allNodes.forEach(n => {
+                const id = (n.y * h * w) + (n.z * w) + n.x;
+                n.id = id;
+                n.active = activeSet.has(id);
+            });
+            lastOptimizedNodes = allNodes;
+            renderOptimizedStructure(allNodes);
         } else {
             lastOptimizedNodes = reconstructNodes(proj.width, proj.height, proj.active_nodes);
             renderOptimizedStructure(lastOptimizedNodes);
@@ -1232,9 +1301,9 @@ if (fileInput) {
             const result = await response.json();
             if (result.status === 'success') {
                 term.innerHTML += `<div style='color:#10b981;'>${result.message}</div>`;
-                tempImportData = { nodes: result.nodes, width: result.width, height: result.height };
+                tempImportData = {nodes: result.nodes, width: result.width, height: result.height};
                 const sizeLabel = document.getElementById('preview-grid-size');
-                if(sizeLabel) sizeLabel.innerText = `${result.width}x${result.height}`;
+                if (sizeLabel) sizeLabel.innerText = `${result.width}x${result.height}`;
                 document.getElementById('preview-modal-overlay').style.display = 'flex';
                 drawPreviewCanvas(result.nodes, result.width, result.height);
             } else {
@@ -1255,8 +1324,8 @@ function drawPreviewCanvas(nodes, w, h) {
     pCanvas.height = 200;
     pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
     const padding = 10;
-    const availW = pCanvas.width - padding*2;
-    const availH = pCanvas.height - padding*2;
+    const availW = pCanvas.width - padding * 2;
+    const availH = pCanvas.height - padding * 2;
     const spacing = Math.min(availW / w, availH / h);
     const offsetX = (pCanvas.width - (w * spacing)) / 2;
     const offsetY = (pCanvas.height - (h * spacing)) / 2;
@@ -1291,19 +1360,25 @@ function confirmUpload() {
     //switch to 2D
     gridState.mode = '2d';
     const modeSelect = document.getElementById('select-mode');
-    if(modeSelect) modeSelect.value = '2d';
+    if (modeSelect) modeSelect.value = '2d';
     toggleModeUI();
 
     gridState.activeMap = new Set();
     tempImportData.nodes.forEach(n => {
-        if(n.active) gridState.activeMap.add(`${n.x},${n.z}`);
+        if (n.active) gridState.activeMap.add(`${n.x},${n.z}`);
     });
     importedActiveMap = new Set(gridState.activeMap);
 
     const sW = document.getElementById('slider-width');
     const sH = document.getElementById('slider-height');
-    if(sW) { sW.value = tempImportData.width; document.getElementById('val-width').innerText = tempImportData.width; }
-    if(sH) { sH.value = tempImportData.height; document.getElementById('val-height').innerText = tempImportData.height; }
+    if (sW) {
+        sW.value = tempImportData.width;
+        document.getElementById('val-width').innerText = tempImportData.width;
+    }
+    if (sH) {
+        sH.value = tempImportData.height;
+        document.getElementById('val-height').innerText = tempImportData.height;
+    }
 
     isShowingResult = false;
     lastOptimizedNodes = tempImportData.nodes;
@@ -1334,6 +1409,7 @@ function convertResultToEditMode() {
     isShowingResult = false;
     lastOptimizedNodes = null;
 }
+
 //-----------------------------------------------------------------------------------------------
 // Check Symmetry
 //-----------------------------------------------------------------------------------------------
@@ -1395,7 +1471,7 @@ async function downloadPythonReport() {
         supports: gridState.supports,
         active_nodes: getActiveIndices(),
         forces: Object.keys(gridState.forces).reduce((acc, key) => {
-            acc[key] = { fy: currentForce };
+            acc[key] = {fy: currentForce};
             return acc;
         }, {})
     };

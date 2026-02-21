@@ -7,13 +7,18 @@ import numpy as np
 from src.model.structure import Structure2D, Structure3D
 from src.analysis.optimizer import run_optimization
 from src.visualization.create_report import report_bp
+
 ########################################################################################################
 #       Initialisiere Flask Server
 ########################################################################################################
 app = Flask(__name__)
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
 ########################################################################################################
 #       Logging to UI
 ########################################################################################################
@@ -112,8 +117,10 @@ def optimize():
                 node_id = z * width + x
                 if node_id < len(s.nodes):
                     s.last_aufbringen(node_id, 0, fy)
+
         def generate():
-            gen = run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=removal_rate, use_symmetry=use_symmetry)
+            gen = run_optimization(s, target_mass_ratio=mass_ratio, removal_rate=removal_rate,
+                                   use_symmetry=use_symmetry)
             for step_struct, is_done, msg in gen:
                 nodes_data = []
                 for n in step_struct.nodes:
@@ -127,6 +134,16 @@ def optimize():
                     "message": msg,
                     "nodes": nodes_data
                 }
+                if is_done and hasattr(step_struct, 'raw_active'):
+                    raw_data = []
+                    raw_set = set(step_struct.raw_active)
+                    for n in step_struct.nodes:
+                        if n.id in raw_set:
+                            nd = {"id": n.id, "x": n.x, "z": n.z, "active": True}
+                            if hasattr(n, 'y'): nd['y'] = n.y
+                            raw_data.append(nd)
+                    resp["raw_nodes"] = raw_data
+
                 yield json.dumps(resp) + "\n"
 
         return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
@@ -134,6 +151,8 @@ def optimize():
     except Exception as e:
         print(f"CRITICAL ERROR: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
 ########################################################################################################
 #       Verformungsanalyse verbinden mit UI
 ########################################################################################################
@@ -168,13 +187,17 @@ def analyze_kinematics():
                 for y in range(depth):
                     node_id = (y * height * width) + (z * width) + x
                     if node_id < len(s.nodes) and s.nodes[node_id].active:
-                        if type == 'fixed': s.nodes[node_id].fixed = [True, True, True]
-                        elif type == 'roller': s.nodes[node_id].fixed = [False, True, False]
+                        if type == 'fixed':
+                            s.nodes[node_id].fixed = [True, True, True]
+                        elif type == 'roller':
+                            s.nodes[node_id].fixed = [False, True, False]
             else:
                 node_id = z * width + x
                 if node_id < len(s.nodes) and s.nodes[node_id].active:
-                    if type == 'fixed': s.nodes[node_id].fixed = [True, True]
-                    elif type == 'roller': s.nodes[node_id].fixed = [False, True]
+                    if type == 'fixed':
+                        s.nodes[node_id].fixed = [True, True]
+                    elif type == 'roller':
+                        s.nodes[node_id].fixed = [False, True]
 
         for key, val in forces.items():
             parts = list(map(int, key.split(',')))
@@ -198,12 +221,16 @@ def analyze_kinematics():
         for i, node in enumerate(s.nodes):
             if not node.active: continue
             if mode == '3d':
-                ux = u[3 * i]; uz = u[3 * i + 1]; uy = u[3 * i + 2]
-                total_disp = (ux**2 + uz**2 + uy**2)**0.5
-                nodes_data.append({"id": node.id, "x": node.x, "z": node.z, "y": node.y, "ux": ux, "uz": uz, "uy": uy, "disp": total_disp})
+                ux = u[3 * i];
+                uz = u[3 * i + 1];
+                uy = u[3 * i + 2]
+                total_disp = (ux ** 2 + uz ** 2 + uy ** 2) ** 0.5
+                nodes_data.append({"id": node.id, "x": node.x, "z": node.z, "y": node.y, "ux": ux, "uz": uz, "uy": uy,
+                                   "disp": total_disp})
             else:
-                ux = u[2 * i]; uz = u[2 * i + 1]
-                total_disp = (ux**2 + uz**2)**0.5
+                ux = u[2 * i];
+                uz = u[2 * i + 1]
+                total_disp = (ux ** 2 + uz ** 2) ** 0.5
                 nodes_data.append({"id": node.id, "x": node.x, "z": node.z, "ux": ux, "uz": uz, "disp": total_disp})
             if total_disp > max_disp: max_disp = total_disp
 
@@ -212,6 +239,8 @@ def analyze_kinematics():
     except Exception as e:
         print(f"ANALYZE ERROR: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
 ########################################################################################################
 #       Speicher- und Ladelogik für UI
 ########################################################################################################
@@ -240,6 +269,7 @@ def save_project():
         print(f"SAVE ERROR: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
     try:
@@ -247,6 +277,7 @@ def get_projects():
         return jsonify({"status": "success", "projects": projects})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route('/api/delete_project', methods=['POST'])
 def delete_project():
@@ -268,6 +299,8 @@ def delete_project():
 
 
 app.register_blueprint(report_bp)
+
+
 ########################################################################################################
 #       Upload Image to UI
 ########################################################################################################
@@ -329,6 +362,7 @@ def upload_image():
     except Exception as e:
         print(f"UPLOAD ERROR: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
