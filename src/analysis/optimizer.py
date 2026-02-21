@@ -275,6 +275,10 @@ def run_optimization(structure, target_mass_ratio=0.4, removal_rate=0.01, use_sy
                 else:
                     for pid in pair: structure.nodes[pid].active = True
 
+    structure.entferne_tote_aeste()
+
+    structure.raw_active = [n.id for n in structure.nodes if n.active]
+
     structure.fuelle_loecher()
     verdicke_struktur(structure)
     structure.fuelle_loecher()
