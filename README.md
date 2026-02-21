@@ -125,8 +125,8 @@ Zwei Beispiele finden sich unter `test_uploads/`.
 
 *  **Unit-Tests**: In der `tests/test_structure.py` findet sich ein KI geschriebener Unit-Test, der die Grundlegende Mathematik hinter der Knoten- und Federlogik in 2D und 3D prüft.
 *  **3D-STL Export**: Im 3D-Modus besteht die Möglichkeit das Objekt als .stl-Datei herunterzuladen. Hier werden die Knoten durch Würfel ersetzt.
-*  **Aktuelle Ansicht als Bild exportieren**: Im 2D und 3D Modus kann man die Aktuelle Ansicht des Objekts als Bild exportieren und herunterladen.
 ![Verformungsanalyse](images/stl_export.png)
+*  **Aktuelle Ansicht als Bild exportieren**: Im 2D und 3D Modus kann man die Aktuelle Ansicht des Objekts als Bild exportieren und herunterladen.
 *  **Einen kurzer Report als PDF runterladen**: Im 2D Modus kann man ein Report erstellen lassen, der die Optimierte struktur sowie die Verformung und Kraftfluss anzeigt.
 [![Vorschau des Reports](images/Report_Vorschau.png)](images/Topologie_Report.pdf)
 
