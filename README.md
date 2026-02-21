@@ -83,7 +83,6 @@ http://127.0.0.1:5000
 Es wird empfohlen die Stufe "Ausgewogen" zu verwenden, bei größeren Objekten zunehmend Geschwindigkeit "Schnell".
 
 ![Geschwindigkeitseinstellung](images/Geschwindigkeitseinstellung.png)
-![Gewichtsoptimierung](images/Gewichtsoptimierung.jpeg)
 
 *   **Analysieren**: Berechnet die Verformung (Kinematik) der aktuellen Struktur unter Last.
 *   **Logs**: Verfolgen Sie den Fortschritt der Berechnung live im Log-Fenster.
@@ -112,10 +111,24 @@ Zwei Beispiele finden sich unter `test_uploads/`.
     <img src="images/Beispiel_Upload2.png" alt="Verformungsanalyse" width="100">
 </p>
 
+*  **Ein und Ausschalten einer Verschönerungsfunktion**: Man kann die Struktur im Nachhinein verschönern lassen um Löcher und Lücken zu füllen. Diese Funktion kann man vor und auch nach der Optimierung aktivieren/deaktivieren.
+<table>
+  <tr>
+    <th align="center">Mit Verschönerung</th>
+    <th align="center">Ohne Verschönerung</th>
+  </tr>
+  <tr>
+    <td><img src="images/Verschoenerungsfunktion.png" width="400"/></td>
+    <td><img src="images/ohneVerschoenerung.png" width="400"/></td>
+  </tr>
+</table>
+
 *  **Unit-Tests**: In der `tests/test_structure.py` findet sich ein KI geschriebener Unit-Test, der die Grundlegende Mathematik hinter der Knoten- und Federlogik in 2D und 3D prüft.
 *  **3D-STL Export**: Im 3D-Modus besteht die Möglichkeit das Objekt als .stl-Datei herunterzuladen. Hier werden die Knoten durch Würfel ersetzt.
 *  **Aktuelle Ansicht als Bild exportieren**: Im 2D und 3D Modus kann man die Aktuelle Ansicht des Objekts als Bild exportieren und herunterladen.
 ![Verformungsanalyse](images/stl_export.png)
+*  **Einen kurzer Report als PDF runterladen**: Im 2D Modus kann man ein Report erstellen lassen, der die Optimierte struktur sowie die Verformung und Kraftfluss anzeigt.
+[![Vorschau des Reports](images/Report_Vorschau.png)](images/Topologie_Report.pdf)
 
 
 ## Softwarestruktur & Implementierungsentscheidungen
