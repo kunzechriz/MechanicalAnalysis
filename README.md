@@ -123,7 +123,7 @@ Zwei Beispiele finden sich unter `test_uploads/`.
   </tr>
 </table>
 
-*  **Unit-Tests**: In der `tests/test_structure.py` findet sich ein KI geschriebener Unit-Test, der die Grundlegende Mathematik hinter der Knoten- und Federlogik in 2D und 3D prüft.
+*  **Unit-Tests**: In der `tests/test_structure.py` findet sich ein mit Hilfe von KI geschriebener Unit-Test, der die Grundlegende Mathematik hinter der Knoten- und Federlogik in 2D und 3D prüft.
 *  **3D-STL Export**: Im 3D-Modus besteht die Möglichkeit das Objekt als .stl-Datei herunterzuladen. Hier werden die Knoten durch Würfel ersetzt.
 ![Verformungsanalyse](images/stl_export.png)
 *  **Aktuelle Ansicht als Bild exportieren**: Im 2D und 3D Modus kann man die Aktuelle Ansicht des Objekts als Bild exportieren und herunterladen.
