@@ -2,12 +2,135 @@ import numpy as np
 from typing import List
 from tinydb import TinyDB, Query
 import os
-from scipy.sparse import lil_matrix #lösung für performance auf 3D
+from scipy.sparse import lil_matrix, coo_matrix #lösung für performance auf 3D
 from scipy.sparse.linalg import spsolve
+from numba import njit
 
 from .node import Node
 from .spring import Element, Spring2D, Spring3D
 from ..analysis.graph_utils import check_connectivity
+
+
+########################################################################################################
+#       NUMBA JIT OPTIMIERUNGEN (Übersetzt Python in C-Maschinencode)
+########################################################################################################
+@njit
+def build_K_dense_2d(coords, elements, k_vals, active_nodes, n_dofs):
+    K = np.zeros((n_dofs, n_dofs), dtype=np.float64)
+    for i in range(len(elements)):
+        n1 = elements[i, 0]
+        n2 = elements[i, 1]
+
+        if not (active_nodes[n1] and active_nodes[n2]):
+            continue
+
+        dx = coords[n2, 0] - coords[n1, 0]
+        dz = coords[n2, 1] - coords[n1, 1]
+        L2 = dx * dx + dz * dz
+        if L2 == 0: continue
+
+        L = np.sqrt(L2)
+        c = dx / L
+        s = dz / L
+        k = k_vals[i]
+
+        cc, ss, cs = c * c * k, s * s * k, c * s * k
+
+        # Lokale Steifigkeitsmatrix direkt aufbauen
+        Ke = np.array([
+            [cc, cs, -cc, -cs],
+            [cs, ss, -cs, -ss],
+            [-cc, -cs, cc, cs],
+            [-cs, -ss, cs, ss]
+        ])
+
+        dofs = np.array([n1 * 2, n1 * 2 + 1, n2 * 2, n2 * 2 + 1])
+        for r in range(4):
+            for c_idx in range(4):
+                K[dofs[r], dofs[c_idx]] += Ke[r, c_idx]
+    return K
+
+
+@njit
+def calc_energies_2d(coords, elements, k_vals, active_nodes, u_global, num_nodes):
+    energies = np.zeros(num_nodes, dtype=np.float64)
+    for i in range(len(elements)):
+        n1 = elements[i, 0]
+        n2 = elements[i, 1]
+        if not (active_nodes[n1] and active_nodes[n2]): continue
+
+        dx = coords[n2, 0] - coords[n1, 0]
+        dz = coords[n2, 1] - coords[n1, 1]
+        L2 = dx * dx + dz * dz
+        if L2 == 0: continue
+
+        L = np.sqrt(L2)
+        dl = (u_global[n2 * 2] - u_global[n1 * 2]) * (dx / L) + (u_global[n2 * 2 + 1] - u_global[n1 * 2 + 1]) * (dz / L)
+        e_val = 0.5 * k_vals[i] * dl * dl
+
+        energies[n1] += e_val / 2.0
+        energies[n2] += e_val / 2.0
+    return energies
+
+
+@njit
+def build_K_sparse_data_3d(coords, elements, k_vals, active_nodes):
+    num_elements = len(elements)
+    rows = np.zeros(num_elements * 36, dtype=np.int32)
+    cols = np.zeros(num_elements * 36, dtype=np.int32)
+    data = np.zeros(num_elements * 36, dtype=np.float64)
+
+    idx = 0
+    for i in range(num_elements):
+        n1 = elements[i, 0]
+        n2 = elements[i, 1]
+        if not (active_nodes[n1] and active_nodes[n2]): continue
+
+        dx = coords[n2, 0] - coords[n1, 0]
+        dy = coords[n2, 1] - coords[n1, 1]
+        dz = coords[n2, 2] - coords[n1, 2]
+        L2 = dx * dx + dy * dy + dz * dz
+        if L2 == 0: continue
+
+        L = np.sqrt(L2)
+        l, m, n = dx / L, dy / L, dz / L
+        k = k_vals[i]
+
+        T = np.array([[l * l, l * m, l * n], [m * l, m * m, m * n], [n * l, n * m, n * n]]) * k
+        Ke = np.zeros((6, 6), dtype=np.float64)
+        Ke[0:3, 0:3] = T
+        Ke[3:6, 3:6] = T
+        Ke[0:3, 3:6] = -T
+        Ke[3:6, 0:3] = -T
+
+        dofs = np.array([n1 * 3, n1 * 3 + 1, n1 * 3 + 2, n2 * 3, n2 * 3 + 1, n2 * 3 + 2])
+        for r in range(6):
+            for c_idx in range(6):
+                rows[idx], cols[idx], data[idx] = dofs[r], dofs[c_idx], Ke[r, c_idx]
+                idx += 1
+    return rows[:idx], cols[:idx], data[:idx]
+
+
+@njit
+def calc_energies_3d(coords, elements, k_vals, active_nodes, u_global, num_nodes):
+    energies = np.zeros(num_nodes, dtype=np.float64)
+    for i in range(len(elements)):
+        n1 = elements[i, 0]
+        n2 = elements[i, 1]
+        if not (active_nodes[n1] and active_nodes[n2]): continue
+
+        dx, dy, dz = coords[n2, 0] - coords[n1, 0], coords[n2, 1] - coords[n1, 1], coords[n2, 2] - coords[n1, 2]
+        L2 = dx * dx + dy * dy + dz * dz
+        if L2 == 0: continue
+
+        L = np.sqrt(L2)
+        dl = (u_global[n2 * 3] - u_global[n1 * 3]) * (dx / L) + (u_global[n2 * 3 + 1] - u_global[n1 * 3 + 1]) * (
+                    dy / L) + (u_global[n2 * 3 + 2] - u_global[n1 * 3 + 2]) * (dz / L)
+        e_val = 0.5 * k_vals[i] * dl * dl
+
+        energies[n1] += e_val / 2.0
+        energies[n2] += e_val / 2.0
+    return energies
 ########################################################################################################
 #       Baue Struktur aus Knoten und Federn auf
 ########################################################################################################
@@ -48,18 +171,14 @@ class Structure2D:
 
     def erstelle_globale_steifigkeitsmatrix(self) -> np.ndarray:
         n_dof = len(self.nodes) * 2
-        k_global = np.zeros((n_dof, n_dof))
+        # Daten aus Objekten entnehmen
+        coords = np.array([[n.x, n.z] for n in self.nodes], dtype=np.float64)
+        active_nodes = np.array([n.active for n in self.nodes], dtype=np.bool_)
+        elements = np.array([[el.node_a.id, el.node_b.id] for el in self.elements], dtype=np.int32)
+        k_vals = np.array([el.k for el in self.elements], dtype=np.float64)
 
-        for element in self.elements:
-            if element.node_a.active and element.node_b.active:
-                k_element = element.berechne_transformierte_steifigkeitsmatrix()
-                indizes = element.node_a.global_dof_indices + element.node_b.global_dof_indices
-
-                for local_row, global_row in enumerate(indizes):
-                    for local_col, global_col in enumerate(indizes):
-                        k_global[global_row, global_col] += k_element[local_row, local_col]
-
-        return k_global
+        # Die kompilierte C-Funktion aufrufen
+        return build_K_dense_2d(coords, elements, k_vals, active_nodes, n_dof)
 
     def erstelle_kraftvektor(self) -> np.ndarray:
         n_dof = len(self.nodes) * 2
@@ -105,14 +224,13 @@ class Structure2D:
         return u
 
     def berechne_knoten_energien(self, u_global: np.ndarray):
-        energien = {n.id: 0.0 for n in self.nodes}
+        coords = np.array([[n.x, n.z] for n in self.nodes], dtype=np.float64)
+        active_nodes = np.array([n.active for n in self.nodes], dtype=np.bool_)
+        elements = np.array([[el.node_a.id, el.node_b.id] for el in self.elements], dtype=np.int32)
+        k_vals = np.array([el.k for el in self.elements], dtype=np.float64)
 
-        for element in self.elements:
-            if element.node_a.active and element.node_b.active:
-                e_val = element.berechne_verformungsenergie(u_global)
-                energien[element.node_a.id] += e_val / 2.0
-                energien[element.node_b.id] += e_val / 2.0
-        return energien
+        energies_arr = calc_energies_2d(coords, elements, k_vals, active_nodes, u_global, len(self.nodes))
+        return {n.id: energies_arr[n.id] for n in self.nodes}
 
     def check_stability(self) -> bool:
         active_nodes = [n for n in self.nodes if n.active]
@@ -366,18 +484,16 @@ class Structure3D(Structure2D):
 
     def erstelle_globale_steifigkeitsmatrix(self) -> lil_matrix:
         n_dof = len(self.nodes) * 3
-        k_global = lil_matrix((n_dof, n_dof))
+        coords = np.array([[n.x, n.z, getattr(n, 'y', 0.0)] for n in self.nodes], dtype=np.float64)
+        active_nodes = np.array([n.active for n in self.nodes], dtype=np.bool_)
+        elements = np.array([[el.node_a.id, el.node_b.id] for el in self.elements], dtype=np.int32)
+        k_vals = np.array([el.stiffness if hasattr(el, 'stiffness') else 1.0 for el in self.elements], dtype=np.float64)
 
-        for element in self.elements:
-            if element.node_a.active and element.node_b.active:
-                k_element = element.berechne_transformierte_steifigkeitsmatrix()
-                indizes = element.node_a.global_dof_indices + element.node_b.global_dof_indices
+        rows, cols, data = build_K_sparse_data_3d(coords, elements, k_vals, active_nodes)
 
-                for local_row, global_row in enumerate(indizes):
-                    for local_col, global_col in enumerate(indizes):
-                        k_global[global_row, global_col] += k_element[local_row, local_col]
-
-        return k_global.tocsr()
+        # Matrix sehr schnell über den COO-Format Umweg (SciPy) aufbauen
+        k_global = coo_matrix((data, (rows, cols)), shape=(n_dof, n_dof)).tolil()
+        return k_global
 
     def erstelle_kraftvektor(self) -> np.ndarray:
         n_dof = len(self.nodes) * 3
@@ -433,14 +549,13 @@ class Structure3D(Structure2D):
             node.u_y = uy
 
     def berechne_knoten_energien(self, u_global: np.ndarray):
-        energien = {n.id: 0.0 for n in self.nodes}
+        coords = np.array([[n.x, n.z, getattr(n, 'y', 0.0)] for n in self.nodes], dtype=np.float64)
+        active_nodes = np.array([n.active for n in self.nodes], dtype=np.bool_)
+        elements = np.array([[el.node_a.id, el.node_b.id] for el in self.elements], dtype=np.int32)
+        k_vals = np.array([el.stiffness if hasattr(el, 'stiffness') else 1.0 for el in self.elements], dtype=np.float64)
 
-        for element in self.elements:
-            if element.node_a.active and element.node_b.active:
-                e_val = element.berechne_verformungsenergie(u_global)
-                energien[element.node_a.id] += e_val / 2.0
-                energien[element.node_b.id] += e_val / 2.0
-        return energien
+        energies_arr = calc_energies_3d(coords, elements, k_vals, active_nodes, u_global, len(self.nodes))
+        return {n.id: energies_arr[n.id] for n in self.nodes}
 
     def check_stability(self) -> bool:
         return super().check_stability()
